@@ -1,0 +1,319 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-01-01T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "req_health_check",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/health",
+      "name": "Health Check",
+      "description": "Check if the social link service is healthy",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_discord_oauth_url",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/discord/oauth-url",
+      "name": "Get Discord OAuth URL",
+      "description": "Get Discord OAuth authorization URL for a user",
+      "method": "GET",
+      "body": {},
+      "parameters": [
+        {
+          "name": "user_id",
+          "value": "{{ _.test_user_id }}",
+          "description": "User's wallet address or unique identifier"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200001,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_discord_callback",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/discord/callback",
+      "name": "Discord OAuth Callback",
+      "description": "Handle Discord OAuth callback (simulated - requires real OAuth flow)",
+      "method": "GET",
+      "body": {},
+      "parameters": [
+        {
+          "name": "code",
+          "value": "{{ _.discord_auth_code }}",
+          "description": "Authorization code from Discord (simulated)"
+        },
+        {
+          "name": "state",
+          "value": "deid_{{ _.test_user_id }}",
+          "description": "State parameter for CSRF protection"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200002,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_user_social_links",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/links/{{ _.test_user_id }}",
+      "name": "Get User Social Links",
+      "description": "Get all social links for a user",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200003,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_user_social_links_verified",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/links/{{ _.test_user_id }}",
+      "name": "Get User Social Links (Verified Only)",
+      "description": "Get only verified social links for a user",
+      "method": "GET",
+      "body": {},
+      "parameters": [
+        {
+          "name": "status",
+          "value": "verified",
+          "description": "Filter by verification status"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200004,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_user_social_links_onchain",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/links/{{ _.test_user_id }}",
+      "name": "Get User Social Links (Onchain Only)",
+      "description": "Get only onchain social links for a user",
+      "method": "GET",
+      "body": {},
+      "parameters": [
+        {
+          "name": "status",
+          "value": "onchain",
+          "description": "Filter by verification status"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200005,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_user_social_link_stats",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/stats/{{ _.test_user_id }}",
+      "name": "Get User Social Link Stats",
+      "description": "Get social link statistics for a user",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200006,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_onchain_confirm",
+      "parentId": "fld_social_link",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/v1/social/onchain-confirm",
+      "name": "Confirm Onchain Verification",
+      "description": "Confirm onchain verification with transaction hash",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tx_hash\": \"{{ _.test_tx_hash }}\",\n  \"platform\": \"discord\",\n  \"account_id\": \"{{ _.test_discord_account_id }}\"\n}"
+      },
+      "parameters": [
+        {
+          "name": "user_id",
+          "value": "{{ _.test_user_id }}",
+          "description": "User's wallet address or unique identifier"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067200007,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_social_link",
+      "parentId": "wrk_social_link_tests",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "name": "Social Link Tests",
+      "description": "Test collection for Social Link Service endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1704067200000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "wrk_social_link_tests",
+      "parentId": null,
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "name": "DEID Social Link Service Tests",
+      "description": "Comprehensive test collection for DEID Social Link Service",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_social_link_tests",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8000",
+        "test_user_id": "0x1234567890abcdef1234567890abcdef12345678",
+        "test_discord_account_id": "123456789012345678",
+        "test_tx_hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "discord_auth_code": "simulated_auth_code_xyz123"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "test_user_id",
+          "test_discord_account_id",
+          "test_tx_hash",
+          "discord_auth_code"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1704067200000,
+      "_type": "environment"
+    }
+  ]
+}

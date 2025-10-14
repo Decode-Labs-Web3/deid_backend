@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ClaimRegistry",
+  "sourceName": "contracts/verification/ClaimRegistry.sol",
+  "abi": [],
+  "bytecode": "0x608080604052346013576011908160198239f35b600080fdfe600080fdfea164736f6c634300081c000a",
+  "deployedBytecode": "0x600080fdfea164736f6c634300081c000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

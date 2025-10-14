@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+.env
+
+# FastAPI/Starlette
+instance/
+*.db
+*.sqlite3
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and coverage
+htmlcov/
+.coverage
+.tox/
+.pytest_cache/
+.cache/
+.mypy_cache/
+coverage.xml
+
+# Logs
+*.log
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local environment overrides
+local_settings.py
+
+# Ruff, Black, isort, etc.
+.ruff_cache/
+.black/
+.isort.cache
+
+# Misc
+*.bak
+# End of Selection

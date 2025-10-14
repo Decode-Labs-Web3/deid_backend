@@ -1,0 +1,127 @@
+"""
+Simple SSO Router for DEID Backend.
+Focused on 2 main functions:
+1. Fetching user data from Decode
+2. Syncing user data to blockchain profile
+"""
+
+from fastapi import APIRouter, Response, Depends
+from datetime import datetime, timezone, timedelta
+
+from app.api.services.decode_service import DecodeService
+from app.api.dto.decode_dto import SSOValidateRequestDTO, SSOValidateResponseDTO, ProfileMetadataResponseDTO
+from app.core.logging import get_logger
+from app.api.deps.decode_guard import get_current_user, AuthenticatedUser
+from app.api.dto.decode_dto import FetchUserDataResponseDTO
+
+logger = get_logger(__name__)
+
+# Initialize service
+decode_service = DecodeService()
+
+# Create router
+router = APIRouter()
+
+# Decode Backend Service Router
+@router.post("/sso-validate", response_model=SSOValidateResponseDTO)
+async def sso_validate(
+    request: SSOValidateRequestDTO,
+    response: Response
+) -> SSOValidateResponseDTO:
+    """
+    Validate SSO token.
+    """
+    verify_sso_token_response = await decode_service.verify_sso_token(request)
+
+    print(f"Verify SSO Token Response: {verify_sso_token_response}")
+
+    # Check if validation was successful
+    if not verify_sso_token_response.get("success", False):
+        return SSOValidateResponseDTO(
+            success=False,
+            statusCode=verify_sso_token_response.get("statusCode", 500),
+            message=verify_sso_token_response.get("message", "Validation failed"),
+            data=None,
+            requestId=None
+        )
+
+    # Extract session ID from response
+    session_id = verify_sso_token_response.get("data")
+    logger.info(f"SSO validation successful, session ID: {session_id}")
+
+    # Set cookie with session ID
+    # Calculate expiration time (default to 30 days from now)
+    expires = datetime.now(timezone.utc) + timedelta(days=30)
+
+    logger.info(f"Setting cookie: deid_session_id={session_id}, expires={expires}")
+
+    response.set_cookie(
+        key="deid_session_id",
+        value=session_id,
+        expires=expires,
+        secure=False,
+        httponly=False,  # Allow frontend JavaScript to access the cookie
+        samesite="lax",  # More permissive for cross-origin requests
+        path="/"  # Make cookie available for all paths
+    )
+
+    logger.info(f"Cookie set successfully: deid_session_id={session_id}")
+
+    # Return success response
+    return SSOValidateResponseDTO(
+        success=True,
+        statusCode=200,
+        message="SSO token validated successfully",
+        data=None,
+        requestId=session_id
+    )
+
+@router.get("/my-profile", response_model=FetchUserDataResponseDTO)
+async def my_profile(
+    current_user: AuthenticatedUser = Depends(get_current_user)
+) -> FetchUserDataResponseDTO:
+    """
+    Get my profile from Decode.
+    """
+    get_my_profile_response = await decode_service.get_my_profile(current_user.user_id)
+    return get_my_profile_response
+
+@router.get("/profile-metadata/{ipfs_hash}", response_model=ProfileMetadataResponseDTO)
+async def get_profile_metadata(ipfs_hash: str) -> ProfileMetadataResponseDTO:
+    """
+    Fetch profile metadata from IPFS using the provided hash.
+
+    Args:
+        ipfs_hash: The IPFS hash to fetch metadata for
+
+    Returns:
+        ProfileMetadataResponseDTO: The profile metadata response
+    """
+    logger.info(f"Fetching profile metadata for IPFS hash: {ipfs_hash}")
+
+    try:
+        # Validate IPFS hash format
+        if not ipfs_hash or len(ipfs_hash) < 10:
+            return ProfileMetadataResponseDTO(
+                success=False,
+                statusCode=400,
+                message="Invalid IPFS hash format",
+                data=None,
+                requestId=None
+            )
+
+        # Fetch metadata from IPFS
+        response = await decode_service.fetch_profile_metadata_from_ipfs(ipfs_hash)
+
+        logger.info(f"Profile metadata fetch result: success={response.success}")
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in profile metadata endpoint: {e}")
+        return ProfileMetadataResponseDTO(
+            success=False,
+            statusCode=500,
+            message=f"Internal server error: {str(e)}",
+            data=None,
+            requestId=None
+        )
