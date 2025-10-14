@@ -39,23 +39,18 @@ def get_oauth_success_template(
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem;
             color: #FFFFFF;
         }}
 
         .container {{
             width: 100%;
-            max-width: 32rem;
-            background: #121212;
-            border: 1px solid #212121;
-            border-radius: 1rem;
-            box-shadow: 0 25px 50px -12px rgba(75, 255, 191, 0.09);
-            padding: 2.5rem;
+            max-width: 1200px;
             text-align: center;
-            animation: slideUp 0.5s ease-out;
+            animation: fadeIn 0.6s ease-out;
         }}
 
-        @keyframes slideUp {{
+        @keyframes fadeIn {{
             from {{
                 opacity: 0;
                 transform: translateY(20px);
@@ -66,183 +61,90 @@ def get_oauth_success_template(
             }}
         }}
 
-        .icon-container {{
-            width: 5rem;
-            height: 5rem;
-            background: linear-gradient(135deg, #4BFFA8, #10B981);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 8px 24px rgba(75, 255, 191, 0.25);
-        }}
-
-        .success-icon {{
-            font-size: 2.5rem;
+        .logo {{
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 3rem;
+            display: block;
         }}
 
         h1 {{
-            font-size: 2rem;
+            font-size: 3rem;
             font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #4BFFA8, #10B981);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 1.5rem;
+            color: #FFFFFF;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }}
 
         .subtitle {{
-            color: #A0A0A0;
             font-size: 1rem;
-            line-height: 1.6;
-            margin-bottom: 2rem;
-        }}
-
-        .user-info {{
-            background: rgba(75, 255, 191, 0.08);
-            border: 1px solid rgba(75, 255, 191, 0.34);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            text-align: left;
-        }}
-
-        .info-row {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(75, 255, 191, 0.15);
-        }}
-
-        .info-row:last-child {{
-            border-bottom: none;
-        }}
-
-        .info-label {{
-            font-weight: 600;
-            color: #FFFFFF;
-            font-size: 0.875rem;
-        }}
-
-        .info-value {{
+            font-weight: 500;
             color: #A0A0A0;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 0.875rem;
-        }}
-
-        .status-badge {{
-            background: linear-gradient(135deg, #89FF89, #5EE65E);
-            color: #000000;
-            padding: 0.375rem 0.875rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 700;
+            line-height: 1.6;
+            margin-bottom: 3rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }}
 
-        .signature {{
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 0.8em;
-            color: #78ffe1;
-            word-break: break-all;
-            margin-top: 1.25rem;
-            padding: 0.55rem;
-            background: #0d1a13;
-            border: 1px solid #1ce4b4;
-            border-radius: 0.5rem;
-        }}
-
-        .back-button {{
+        .return-button {{
             background: linear-gradient(135deg, #4BFFA8, #10B981);
             color: #000000;
             border: none;
-            border-radius: 0.75rem;
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            font-weight: 700;
+            border-radius: 3rem;
+            padding: 1.25rem 3rem;
+            font-size: 1.125rem;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            box-shadow: 0 8px 24px rgba(75, 255, 191, 0.19);
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 8px 24px rgba(75, 255, 168, 0.4);
         }}
 
-        .back-button:hover {{
+        .return-button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(75, 255, 191, 0.30);
+            box-shadow: 0 12px 32px rgba(75, 255, 168, 0.5);
         }}
 
-        .back-button:active {{
+        .return-button:active {{
             transform: translateY(0);
         }}
 
-        .instruction {{
-            color: #A0A0A0;
-            font-size: 0.875rem;
-            margin: 1.5rem 0;
-            line-height: 1.6;
-        }}
-
         @media (max-width: 640px) {{
-            .container {{
-                padding: 2rem 1.5rem;
-                margin: 0.5rem;
+            .logo {{
+                width: 150px;
+                height: 150px;
+                margin-bottom: 2rem;
             }}
 
             h1 {{
-                font-size: 1.5rem;
+                font-size: 2rem;
             }}
 
             .subtitle {{
-                font-size: 0.9rem;
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+            }}
+
+            .return-button {{
+                padding: 1rem 2.5rem;
+                font-size: 1rem;
             }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon-container">
-            <div class="success-icon">✅</div>
-        </div>
-        <h1>{platform.title()} Verification Successful!</h1>
+        <img src="/deid_logo_noname.png" alt="DEiD Logo" class="logo">
+        <h1>{platform.title()} Verification Success</h1>
         <p class="subtitle">
             Your {platform.title()} account has been successfully verified and linked to your DEiD profile.
         </p>
-
-        <div class="user-info">
-            <div class="info-row">
-                <span class="info-label">Platform:</span>
-                <span class="info-value">{platform.title()}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Username:</span>
-                <span class="info-value">{username}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Account ID:</span>
-                <span class="info-value">{account_id}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Status:</span>
-                <span class="status-badge">{status.title()}</span>
-            </div>
-            <div class="signature">
-                Signature: {signature[:20]}...
-            </div>
-        </div>
-
-        <p class="instruction">
-            You can now close this window and return to the DEiD dApp to complete the on-chain verification.
-        </p>
-
-        <a href="javascript:window.close()" class="back-button">
-            <span>Close Window & Return to DEiD</span>
+        <a href="javascript:window.close()" class="return-button">
+            Return to DEiD
         </a>
     </div>
 
@@ -265,7 +167,6 @@ def get_oauth_error_template(
     """
     Generate HTML template for OAuth verification error.
     """
-    status_info = f"<br><strong>Status Code:</strong> {status_code}" if status_code else ""
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,23 +190,18 @@ def get_oauth_error_template(
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem;
             color: #FFFFFF;
         }}
 
         .container {{
             width: 100%;
-            max-width: 32rem;
-            background: #121212;
-            border: 1px solid #212121;
-            border-radius: 1rem;
-            box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.15);
-            padding: 2.5rem;
+            max-width: 1200px;
             text-align: center;
-            animation: slideUp 0.5s ease-out;
+            animation: fadeIn 0.6s ease-out;
         }}
 
-        @keyframes slideUp {{
+        @keyframes fadeIn {{
             from {{
                 opacity: 0;
                 transform: translateY(20px);
@@ -316,106 +212,99 @@ def get_oauth_error_template(
             }}
         }}
 
-        .icon-container {{
-            width: 5rem;
-            height: 5rem;
-            background: linear-gradient(135deg, #EF4444, #F87171);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.27);
-        }}
-
-        .error-icon {{
-            font-size: 2.5rem;
+        .logo {{
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 3rem;
+            display: block;
         }}
 
         h1 {{
-            font-size: 2rem;
+            font-size: 3rem;
             font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #EF4444, #F87171);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 1.5rem;
+            color: #FFFFFF;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }}
 
-        .error-message {{
-            background: rgba(239, 68, 68, 0.09);
-            border: 1px solid rgba(239, 68, 68, 0.21);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            color: #EF4444;
-            font-size: 0.968rem;
-            line-height: 1.6;
-            text-align: left;
-        }}
-
-        .back-button {{
-            background: linear-gradient(135deg, #EF4444, #F87171);
-            color: #FFF;
-            border: none;
-            border-radius: 0.75rem;
-            padding: 1rem 2rem;
+        .subtitle {{
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 500;
+            color: #A0A0A0;
+            line-height: 1.6;
+            margin-bottom: 3rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+
+        .return-button {{
+            background: linear-gradient(135deg, #EF4444, #F87171);
+            color: #000000;
+            border: none;
+            border-radius: 3rem;
+            padding: 1.25rem 3rem;
+            font-size: 1.125rem;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.26);
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
         }}
 
-        .back-button:hover {{
+        .return-button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.39);
+            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.5);
         }}
 
-        .back-button:active {{
+        .return-button:active {{
             transform: translateY(0);
         }}
 
-        .instruction {{
-            color: #A0A0A0;
-            font-size: 0.875rem;
-            margin: 1.5rem 0;
-            line-height: 1.6;
-        }}
-
         @media (max-width: 640px) {{
-            .container {{
-                padding: 2rem 1.5rem;
-                margin: 0.5rem;
+            .logo {{
+                width: 150px;
+                height: 150px;
+                margin-bottom: 2rem;
             }}
 
             h1 {{
-                font-size: 1.5rem;
+                font-size: 2rem;
+            }}
+
+            .subtitle {{
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+            }}
+
+            .return-button {{
+                padding: 1rem 2.5rem;
+                font-size: 1rem;
             }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon-container">
-            <div class="error-icon">❌</div>
-        </div>
+        <img src="/deid_logo_noname.png" alt="DEiD Logo" class="logo">
         <h1>{platform.title()} Verification Failed</h1>
-        <div class="error-message">
-            <strong>Error:</strong> {error_message}{status_info}
-        </div>
-        <p class="instruction">
-            Please try again or contact support if the problem persists.
+        <p class="subtitle">
+            {error_message}
         </p>
-        <a href="javascript:window.close()" class="back-button">
-            <span>Close Window & Return to DEiD</span>
+        <a href="javascript:window.close()" class="return-button">
+            Return to DEiD
         </a>
     </div>
+
+    <script>
+        // Auto-close after 8 seconds
+        setTimeout(() => {{
+            window.close();
+        }}, 8000);
+    </script>
 </body>
 </html>
 """
@@ -435,7 +324,7 @@ def get_oauth_already_linked_template(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{platform.title()} Account Already Linked - DEiD</title>
+    <title>Account Already Linked - DEiD</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -453,23 +342,18 @@ def get_oauth_already_linked_template(
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem;
             color: #FFFFFF;
         }}
 
         .container {{
             width: 100%;
-            max-width: 32rem;
-            background: #121212;
-            border: 1px solid #212121;
-            border-radius: 1rem;
-            box-shadow: 0 25px 50px -12px rgba(255, 168, 75, 0.15);
-            padding: 2.5rem;
+            max-width: 1200px;
             text-align: center;
-            animation: slideUp 0.5s ease-out;
+            animation: fadeIn 0.6s ease-out;
         }}
 
-        @keyframes slideUp {{
+        @keyframes fadeIn {{
             from {{
                 opacity: 0;
                 transform: translateY(20px);
@@ -480,170 +364,93 @@ def get_oauth_already_linked_template(
             }}
         }}
 
-        .icon-container {{
-            width: 5rem;
-            height: 5rem;
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 8px 24px rgba(255, 168, 75, 0.3);
-        }}
-
-        .info-icon {{
-            font-size: 2.5rem;
+        .logo {{
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 3rem;
+            display: block;
         }}
 
         h1 {{
-            font-size: 2rem;
+            font-size: 3rem;
             font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 1.5rem;
+            color: #FFFFFF;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }}
 
         .subtitle {{
-            color: #A0A0A0;
             font-size: 1rem;
+            font-weight: 500;
+            color: #A0A0A0;
             line-height: 1.6;
-            margin-bottom: 2rem;
-        }}
-
-        .user-info {{
-            background: rgba(255, 168, 75, 0.1);
-            border: 1px solid rgba(255, 168, 75, 0.3);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            text-align: left;
-        }}
-
-        .info-row {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(255, 168, 75, 0.2);
-        }}
-
-        .info-row:last-child {{
-            border-bottom: none;
-        }}
-
-        .info-label {{
-            font-weight: 600;
-            color: #FFFFFF;
-            font-size: 0.875rem;
-        }}
-
-        .info-value {{
-            color: #A0A0A0;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 0.875rem;
-        }}
-
-        .status-badge {{
-            background: linear-gradient(135deg, #89FF89, #5EE65E);
-            color: #000000;
-            padding: 0.375rem 0.875rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 700;
+            margin-bottom: 3rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }}
 
-        .back-button {{
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            color: white;
+        .return-button {{
+            background: linear-gradient(135deg, #FF4BA8, #A24EF7);
+            color: #000000;
             border: none;
-            border-radius: 0.75rem;
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            font-weight: 700;
+            border-radius: 3rem;
+            padding: 1.25rem 3rem;
+            font-size: 1.125rem;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            box-shadow: 0 8px 24px rgba(255, 168, 75, 0.3);
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 8px 24px rgba(255, 75, 168, 0.4);
         }}
 
-        .back-button:hover {{
+        .return-button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(255, 168, 75, 0.4);
+            box-shadow: 0 12px 32px rgba(255, 75, 168, 0.5);
         }}
 
-        .back-button:active {{
+        .return-button:active {{
             transform: translateY(0);
         }}
 
-        .instruction {{
-            color: #A0A0A0;
-            font-size: 0.875rem;
-            margin: 1.5rem 0;
-            line-height: 1.6;
-        }}
-
         @media (max-width: 640px) {{
-            .container {{
-                padding: 2rem 1.5rem;
-                margin: 0.5rem;
+            .logo {{
+                width: 150px;
+                height: 150px;
+                margin-bottom: 2rem;
             }}
 
             h1 {{
-                font-size: 1.5rem;
+                font-size: 2rem;
             }}
 
             .subtitle {{
-                font-size: 0.9rem;
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+            }}
+
+            .return-button {{
+                padding: 1rem 2.5rem;
+                font-size: 1rem;
             }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon-container">
-            <div class="info-icon">ℹ️</div>
-        </div>
-        <h1>Account Already Linked!</h1>
+        <img src="/deid_logo_noname.png" alt="DEiD Logo" class="logo">
+        <h1>Account Already Link</h1>
         <p class="subtitle">
-            This {platform.title()} account is already linked to your DEiD profile.
+            This social account is already linked to your or another DEiD profile.
         </p>
-
-        <div class="user-info">
-            <div class="info-row">
-                <span class="info-label">Platform:</span>
-                <span class="info-value">{platform.title()}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Username:</span>
-                <span class="info-value">{username}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Account ID:</span>
-                <span class="info-value">{account_id}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Status:</span>
-                <span class="status-badge">{status.title()}</span>
-            </div>
-        </div>
-
-        <p class="instruction">
-            No action needed. You can close this window and return to the DEiD dApp.
-        </p>
-
-        <a href="javascript:window.close()" class="back-button">
-            <span>Close Window & Return to DEiD</span>
+        <a href="javascript:window.close()" class="return-button">
+            Return to DEiD
         </a>
     </div>
+
     <script>
         // Auto-close after 8 seconds
         setTimeout(() => {{
@@ -684,23 +491,18 @@ def get_oauth_generic_error_template(
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem;
             color: #FFFFFF;
         }}
 
         .container {{
             width: 100%;
-            max-width: 32rem;
-            background: #121212;
-            border: 1px solid #212121;
-            border-radius: 1rem;
-            box-shadow: 0 25px 50px -12px rgba(255, 168, 75, 0.12);
-            padding: 2.5rem;
+            max-width: 1200px;
             text-align: center;
-            animation: slideUp 0.5s ease-out;
+            animation: fadeIn 0.6s ease-out;
         }}
 
-        @keyframes slideUp {{
+        @keyframes fadeIn {{
             from {{
                 opacity: 0;
                 transform: translateY(20px);
@@ -711,107 +513,99 @@ def get_oauth_generic_error_template(
             }}
         }}
 
-        .icon-container {{
-            width: 5rem;
-            height: 5rem;
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 8px 24px rgba(255, 168, 75, 0.22);
-        }}
-
-        .error-icon {{
-            font-size: 2.5rem;
+        .logo {{
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 3rem;
+            display: block;
         }}
 
         h1 {{
-            font-size: 2rem;
+            font-size: 3rem;
             font-weight: 800;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin-bottom: 1.5rem;
+            color: #FFFFFF;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }}
 
-        .error-message {{
-            background: rgba(255, 168, 75, 0.07);
-            border: 1px solid rgba(255, 168, 75, 0.2);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            color: #FFA84B;
-            font-size: 0.968rem;
-            line-height: 1.6;
-            text-align: left;
-        }}
-
-        .back-button {{
-            background: linear-gradient(135deg, #FFA84B, #F59E0B);
-            color: #000;
-            border: none;
-            border-radius: 0.75rem;
-            padding: 1rem 2rem;
+        .subtitle {{
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 500;
+            color: #A0A0A0;
+            line-height: 1.6;
+            margin-bottom: 3rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+
+        .return-button {{
+            background: linear-gradient(135deg, #EF4444, #F87171);
+            color: #000000;
+            border: none;
+            border-radius: 3rem;
+            padding: 1.25rem 3rem;
+            font-size: 1.125rem;
+            font-weight: 800;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            box-shadow: 0 8px 24px rgba(255, 168, 75, 0.29);
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
         }}
 
-        .back-button:hover {{
+        .return-button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(255, 168, 75, 0.41);
+            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.5);
         }}
 
-        .back-button:active {{
+        .return-button:active {{
             transform: translateY(0);
         }}
 
-        .instruction {{
-            color: #A0A0A0;
-            font-size: 0.875rem;
-            margin: 1.5rem 0;
-            line-height: 1.6;
-        }}
-
         @media (max-width: 640px) {{
-            .container {{
-                padding: 2rem 1.5rem;
-                margin: 0.5rem;
+            .logo {{
+                width: 150px;
+                height: 150px;
+                margin-bottom: 2rem;
             }}
 
             h1 {{
-                font-size: 1.5rem;
+                font-size: 2rem;
+            }}
+
+            .subtitle {{
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+            }}
+
+            .return-button {{
+                padding: 1rem 2.5rem;
+                font-size: 1rem;
             }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon-container">
-            <div class="error-icon">⚠️</div>
-        </div>
+        <img src="/deid_logo_noname.png" alt="DEiD Logo" class="logo">
         <h1>Verification Error</h1>
-        <div class="error-message">
-            <strong>Internal Server Error:</strong><br>
+        <p class="subtitle">
             {error_message}
-        </div>
-        <p class="instruction">
-            Please try again or contact support if the problem persists.
         </p>
-        <a href="javascript:window.close()" class="back-button">
-            <span>Close Window & Return to DEiD</span>
+        <a href="javascript:window.close()" class="return-button">
+            Return to DEiD
         </a>
     </div>
+
+    <script>
+        // Auto-close after 8 seconds
+        setTimeout(() => {{
+            window.close();
+        }}, 8000);
+    </script>
 </body>
 </html>
 """

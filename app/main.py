@@ -7,6 +7,7 @@ Handles decentralized identity management, cross-chain wallet linking, and SSO i
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -80,6 +81,9 @@ def create_app() -> FastAPI:
         prefix="/api/v1/social",
         tags=["Social Link Verification"]
     )
+
+    # Mount static files
+    app.mount("/", StaticFiles(directory="public", html=True), name="static")
 
     @app.get("/")
     async def root():

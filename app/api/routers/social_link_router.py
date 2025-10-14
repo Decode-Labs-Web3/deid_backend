@@ -116,6 +116,88 @@ async def discord_oauth_callback(
         return HTMLResponse(content=html_content, status_code=500)
 
 
+@router.get("/github/oauth-url")
+async def get_github_oauth_url(
+    current_user: AuthenticatedUser = Depends(get_current_user)
+) -> dict:
+    """
+    Get GitHub OAuth authorization URL.
+
+    Args:
+        current_user: Authenticated user
+
+    Returns:
+        Dict containing the OAuth URL
+    """
+    try:
+        oauth_url = await social_link_service.get_github_oauth_url(current_user.user_id)
+        return {
+            "success": True,
+            "oauth_url": oauth_url,
+            "message": "GitHub OAuth URL generated successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error generating GitHub OAuth URL: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate OAuth URL: {str(e)}")
+
+
+@router.get("/github/callback", response_class=HTMLResponse)
+async def github_oauth_callback(
+    code: str = Query(..., description="Authorization code from GitHub"),
+    state: str = Query(..., description="State parameter for CSRF protection")
+):
+    """
+    Handle GitHub OAuth callback and return HTML response.
+
+    Args:
+        code: Authorization code from GitHub
+        state: State parameter for CSRF protection
+
+    Returns:
+        HTML response with success/error message
+    """
+    logger.info(f"GitHub OAuth callback received - code: {code[:10]}..., state: {state}")
+
+    try:
+        result = await social_link_service.handle_github_oauth_callback(code, state)
+
+        if result.success:
+            # Check if account is already linked
+            if result.data["status"] == "already_linked":
+                # Already linked HTML response using template
+                html_content = get_oauth_already_linked_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"]
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+            else:
+                # Success HTML response using template
+                html_content = get_oauth_success_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"],
+                    signature=result.data["signature"]
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+        else:
+            # Error HTML response using template
+            html_content = get_oauth_error_template(
+                platform="GitHub",
+                error_message=result.message,
+                status_code=result.status_code
+            )
+            return HTMLResponse(content=html_content, status_code=400)
+
+    except Exception as e:
+        logger.error(f"Error in GitHub OAuth callback: {e}")
+        # Generic error HTML response using template
+        html_content = get_oauth_generic_error_template(str(e))
+        return HTMLResponse(content=html_content, status_code=500)
+
+
 @router.post("/onchain-confirm")
 async def confirm_onchain_verification(
     request: OnchainConfirmRequestDTO,
@@ -237,8 +319,9 @@ async def health_check() -> dict:
         "service": "social_link",
         "functions": [
             "discord_oauth_verification",
+            "github_oauth_verification",
             "onchain_confirmation",
             "social_links_management"
         ],
-        "supported_platforms": ["discord", "twitter", "github", "telegram"]
+        "supported_platforms": ["discord", "github", "twitter", "telegram"]
     }

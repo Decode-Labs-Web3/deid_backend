@@ -51,6 +51,24 @@ class DiscordUserInfoDTO(BaseModel):
     avatar: Optional[str] = Field(None, description="Discord avatar hash")
 
 
+class GitHubUserInfoDTO(BaseModel):
+    """DTO for GitHub user information."""
+    id: int = Field(..., description="GitHub user ID")
+    login: str = Field(..., description="GitHub username")
+    name: Optional[str] = Field(None, description="GitHub display name")
+    email: Optional[str] = Field(None, description="GitHub email")
+    avatar_url: Optional[str] = Field(None, description="GitHub avatar URL")
+    bio: Optional[str] = Field(None, description="GitHub bio")
+    blog: Optional[str] = Field(None, description="GitHub blog URL")
+    location: Optional[str] = Field(None, description="GitHub location")
+    public_repos: int = Field(..., description="Number of public repositories")
+    public_gists: int = Field(..., description="Number of public gists")
+    followers: int = Field(..., description="Number of followers")
+    following: int = Field(..., description="Number of following")
+    created_at: str = Field(..., description="Account creation date")
+    updated_at: str = Field(..., description="Last update date")
+
+
 class SocialLinkDataDTO(BaseModel):
     """DTO for social link data."""
     id: Optional[str] = Field(None, description="MongoDB document ID")

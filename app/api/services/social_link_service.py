@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.api.dto.social_dto import (
     DiscordUserInfoDTO,
+    GitHubUserInfoDTO,
     SocialVerificationResponseDTO,
     SocialLinkDataDTO,
     SocialLinkStatsDTO,
@@ -38,6 +39,8 @@ class SocialLinkService:
         """Initialize social link service."""
         self.discord_api_base = "https://discord.com/api/v10"
         self.discord_oauth_base = "https://discord.com/oauth2"
+        self.github_api_base = "https://api.github.com"
+        self.github_oauth_base = "https://github.com/login/oauth"
 
     async def get_discord_oauth_url(self, user_id: str) -> str:
         """
@@ -330,6 +333,279 @@ class SocialLinkService:
 
         except Exception as e:
             logger.error(f"Error getting Discord user info: {e}")
+            return None
+
+    async def get_github_oauth_url(self, user_id: str) -> str:
+        """
+        Generate GitHub OAuth authorization URL.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+
+        Returns:
+            GitHub OAuth authorization URL
+        """
+        if not settings.GITHUB_CLIENT_ID:
+            raise ValueError("GitHub client ID not configured")
+
+        # Create state parameter with user_id for CSRF protection
+        state = f"deid_{user_id}"
+
+        params = {
+            "client_id": settings.GITHUB_CLIENT_ID,
+            "redirect_uri": settings.GITHUB_REDIRECT_URI,
+            "scope": "user:email",
+            "state": state
+        }
+
+        auth_url = f"{self.github_oauth_base}/authorize?{urlencode(params)}"
+        logger.info(f"Generated GitHub OAuth URL for user {user_id}")
+
+        return auth_url
+
+    async def handle_github_oauth_callback(
+        self,
+        code: str,
+        state: str
+    ) -> SocialVerificationResponseDTO:
+        """
+        Handle GitHub OAuth callback and verify user account.
+
+        Args:
+            code: Authorization code from GitHub
+            state: State parameter for CSRF protection
+
+        Returns:
+            SocialVerificationResponseDTO with verification data
+        """
+        try:
+            print(f"🔍 DEBUG: GitHub OAuth callback received")
+            print(f"   Code: {code[:20]}...")
+            print(f"   State: {state}")
+
+            # Extract user_id from state parameter
+            if not state.startswith("deid_"):
+                print(f"❌ Invalid state parameter: {state}")
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Invalid state parameter",
+                    data=None,
+                    request_id=None
+                )
+
+            user_id = state[5:]  # Remove "deid_" prefix
+            print(f"   Extracted user_id: {user_id}")
+
+            # Exchange code for access token
+            print(f"🔄 Exchanging code for access token...")
+            access_token = await self._exchange_github_code_for_token(code)
+            if not access_token:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to exchange code for access token",
+                    data=None,
+                    request_id=None
+                )
+
+            # Get GitHub user info
+            github_user = await self._get_github_user_info(access_token)
+            if not github_user:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to get GitHub user information",
+                    data=None,
+                    request_id=None
+                )
+
+            # Check if social link already exists
+            existing_link = await social_link_repository.get_social_link(
+                user_id=user_id,
+                platform=SocialPlatform.GITHUB
+            )
+
+            if existing_link:
+                # Check if this is the same GitHub account
+                if existing_link.account_id == str(github_user.id):
+                    # Same account - return already linked status
+                    return SocialVerificationResponseDTO(
+                        success=True,
+                        status_code=200,
+                        message="GitHub account already linked",
+                        data={
+                            **self._convert_to_dto(existing_link),
+                            "status": VerificationStatus.ALREADY_LINKED.value
+                        },
+                        request_id=str(uuid.uuid4())
+                    )
+                else:
+                    # Different GitHub account - update with new verification
+                    signature_data = await self._generate_verification_signature(
+                        account_id=str(github_user.id)
+                    )
+
+                    if signature_data:
+                        update_data = SocialLinkUpdateModel(
+                            username=github_user.login,
+                            email=github_user.email,
+                            signature=signature_data["signature"],
+                            verification_hash=signature_data["verification_hash"],
+                            status=VerificationStatus.VERIFIED
+                        )
+
+                        updated_link = await social_link_repository.update_social_link(
+                            user_id=user_id,
+                            platform=SocialPlatform.GITHUB,
+                            update_data=update_data
+                        )
+
+                        if updated_link:
+                            return SocialVerificationResponseDTO(
+                                success=True,
+                                status_code=200,
+                                message="GitHub account re-verified successfully",
+                                data=self._convert_to_dto(updated_link),
+                                request_id=str(uuid.uuid4())
+                            )
+            else:
+                # Create new social link
+                signature_data = await self._generate_verification_signature(
+                    account_id=str(github_user.id)
+                )
+
+                if signature_data:
+                    create_data = SocialLinkCreateModel(
+                        user_id=user_id,
+                        platform=SocialPlatform.GITHUB,
+                        account_id=str(github_user.id),
+                        username=github_user.login,
+                        email=github_user.email,
+                        display_name=github_user.name,
+                        avatar_url=github_user.avatar_url,
+                        signature=signature_data["signature"],
+                        verification_hash=signature_data["verification_hash"],
+                        status=VerificationStatus.VERIFIED
+                    )
+
+                    created_link = await social_link_repository.create_social_link(create_data)
+
+                    if created_link:
+                        return SocialVerificationResponseDTO(
+                            success=True,
+                            status_code=200,
+                            message="GitHub account verified successfully",
+                            data=self._convert_to_dto(created_link),
+                            request_id=str(uuid.uuid4())
+                        )
+
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message="Failed to save verification data",
+                data=None,
+                request_id=None
+            )
+
+        except Exception as e:
+            logger.error(f"Error in GitHub OAuth callback: {e}")
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message=f"Internal server error: {str(e)}",
+                data=None,
+                request_id=None
+            )
+
+    async def _exchange_github_code_for_token(self, code: str) -> Optional[str]:
+        """Exchange GitHub authorization code for access token."""
+        try:
+            if not settings.GITHUB_CLIENT_SECRET:
+                raise ValueError("GitHub client secret not configured")
+
+            data = {
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code
+            }
+
+            print(f"🔍 DEBUG: Exchanging GitHub code for token")
+            print(f"   Client ID: {settings.GITHUB_CLIENT_ID}")
+            print(f"   Client Secret: {settings.GITHUB_CLIENT_SECRET[:10]}...")
+            print(f"   Code: {code[:20]}...")
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.github_oauth_base}/access_token",
+                    data=data,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "DEiD-Social-Link/1.0"
+                    }
+                )
+
+                print(f"🔍 DEBUG: GitHub token exchange response")
+                print(f"   Status Code: {response.status_code}")
+                print(f"   Response Preview: {response.text[:200]}...")
+
+                if response.status_code == 200:
+                    token_data = response.json()
+                    print(f"✅ Token response received: {token_data}")
+
+                    access_token = token_data.get("access_token")
+                    if access_token:
+                        print(f"✅ Access token received: {access_token[:20]}...")
+                        return access_token
+                    else:
+                        print(f"❌ No access token in response: {token_data}")
+                        return None
+                else:
+                    print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error exchanging GitHub code for token: {e}")
+            print(f"🔍 DEBUG: Exception details")
+            print(f"   Exception type: {type(e).__name__}")
+            print(f"   Exception message: {str(e)}")
+            return None
+
+    async def _get_github_user_info(self, access_token: str) -> Optional[GitHubUserInfoDTO]:
+        """Get GitHub user information using access token."""
+        try:
+            async with httpx.AsyncClient() as client:
+                # Get user info from GitHub API
+                response = await client.get(
+                    f"{self.github_api_base}/user",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": "DEiD-Social-Link/1.0"
+                    }
+                )
+                response.raise_for_status()
+
+                user_data = response.json()
+                return GitHubUserInfoDTO(
+                    id=user_data["id"],
+                    login=user_data["login"],
+                    name=user_data.get("name"),
+                    email=user_data.get("email"),
+                    avatar_url=user_data.get("avatar_url"),
+                    bio=user_data.get("bio"),
+                    blog=user_data.get("blog"),
+                    location=user_data.get("location"),
+                    public_repos=user_data.get("public_repos", 0),
+                    public_gists=user_data.get("public_gists", 0),
+                    followers=user_data.get("followers", 0),
+                    following=user_data.get("following", 0),
+                    created_at=user_data.get("created_at", ""),
+                    updated_at=user_data.get("updated_at", "")
+                )
+
+        except Exception as e:
+            logger.error(f"Error getting GitHub user info: {e}")
             return None
 
     async def _generate_verification_signature(

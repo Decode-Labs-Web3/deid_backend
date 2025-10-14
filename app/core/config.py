@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     DISCORD_CLIENT_SECRET: Optional[str] = None
     DISCORD_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/discord/callback"
 
+    # Github OAuth
+    GITHUB_CLIENT_ID: Optional[str] = None
+    GITHUB_CLIENT_SECRET: Optional[str] = None
+    GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/github/callback"
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
