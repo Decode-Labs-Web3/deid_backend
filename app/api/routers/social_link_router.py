@@ -413,6 +413,119 @@ async def get_user_social_link_stats(
         )
 
 
+@router.delete("/unlink/{platform}/{account_id}")
+async def unlink_social_account(
+    platform: str,
+    account_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Unlink a specific social account from the user's DEiD profile.
+
+    Args:
+        platform: Social platform (discord, github, google, twitter, telegram)
+        account_id: Specific account ID to unlink
+        current_user: Authenticated user
+
+    Returns:
+        Dict with success status and message
+    """
+    logger.info(
+        f"Unlinking {platform} account {account_id} for user: {current_user.user_id}"
+    )
+
+    try:
+        # Validate platform
+        from app.api.dto.social_dto import SocialPlatform
+
+        try:
+            social_platform = SocialPlatform(platform.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid platform: {platform}. Supported platforms: discord, github, google, twitter, telegram",
+            )
+
+        # Delete the specific social link
+        deleted = await social_link_service.delete_social_link(
+            current_user.user_id, social_platform, account_id
+        )
+
+        if deleted:
+            return {
+                "success": True,
+                "message": f"{platform.title()} account unlinked successfully",
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No {platform.title()} account found with that ID to unlink",
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unlinking {platform} account: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to unlink {platform} account: {str(e)}"
+        )
+
+
+@router.delete("/unlink/{platform}")
+async def unlink_all_platform_accounts(
+    platform: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Unlink ALL accounts of a specific platform from the user's DEiD profile.
+
+    Args:
+        platform: Social platform to unlink all accounts from (discord, github, google, twitter, telegram)
+        current_user: Authenticated user
+
+    Returns:
+        Dict with success status and message
+    """
+    logger.info(f"Unlinking all {platform} accounts for user: {current_user.user_id}")
+
+    try:
+        # Validate platform
+        from app.api.dto.social_dto import SocialPlatform
+
+        try:
+            social_platform = SocialPlatform(platform.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid platform: {platform}. Supported platforms: discord, github, google, twitter, telegram",
+            )
+
+        # Delete all social links for this platform
+        deleted = await social_link_service.delete_all_platform_links(
+            current_user.user_id, social_platform
+        )
+
+        if deleted:
+            return {
+                "success": True,
+                "message": f"All {platform.title()} accounts unlinked successfully",
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No {platform.title()} accounts found to unlink",
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unlinking all {platform} accounts: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to unlink all {platform} accounts: {str(e)}",
+        )
+
+
 @router.get("/health")
 async def health_check() -> dict:
     """
