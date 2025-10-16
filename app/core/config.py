@@ -3,10 +3,11 @@ Configuration management for the DEID Backend application.
 Handles environment variables and application settings for decentralized identity management.
 """
 
-from typing import List, Optional, Dict, Any
+import os
+from typing import Any, Dict, List, Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
-import os
 
 
 class Settings(BaseSettings):
@@ -73,7 +74,9 @@ class Settings(BaseSettings):
     DECODE_PORTAL_BASE_URL: str = "https://portal.decode.com"
     DECODE_PORTAL_CLIENT_ID: str = "your-decode-client-id"
     DECODE_PORTAL_CLIENT_SECRET: str = "your-decode-client-secret"
-    DECODE_PORTAL_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/decode/callback"
+    DECODE_PORTAL_REDIRECT_URI: str = (
+        "http://localhost:8000/api/v1/auth/decode/callback"
+    )
 
     # Decode Backend URL
     DECODE_BACKEND_URL: str = "http://localhost:8001"
@@ -113,6 +116,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: Optional[str] = None
     GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/github/callback"
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/google/callback"
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
@@ -146,7 +154,7 @@ class Settings(BaseSettings):
             "chain_id": self.EVM_CHAIN_ID,
             "contract_address": self.EVM_CONTRACT_ADDRESS,
             "private_key": self.EVM_PRIVATE_KEY,
-            "explorer": "https://testnet-explorer.monad.xyz"
+            "explorer": "https://testnet-explorer.monad.xyz",
         }
 
     class Config:
@@ -160,6 +168,7 @@ class Settings(BaseSettings):
             self.IPFS_PINATA_API_KEY = self.IPFS_API_KEY
         if not self.IPFS_PINATA_SECRET and self.IPFS_API_SECRET:
             self.IPFS_PINATA_SECRET = self.IPFS_API_SECRET
+
 
 # Create global settings instance
 settings = Settings()
