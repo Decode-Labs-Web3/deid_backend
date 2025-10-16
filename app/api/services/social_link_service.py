@@ -839,7 +839,7 @@ class SocialLinkService:
                         user_id=user_id,
                         platform=SocialPlatform.FACEBOOK,
                         account_id=facebook_user.id,
-                        username=facebook_user.email or facebook_user.id,
+                        username=facebook_user.email or display_name,
                         email=facebook_user.email,
                         display_name=display_name,
                         avatar_url=avatar_url,
