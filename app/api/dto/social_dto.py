@@ -91,6 +91,18 @@ class GoogleUserInfoDTO(BaseModel):
     locale: Optional[str] = Field(None, description="User locale")
 
 
+class FacebookUserInfoDTO(BaseModel):
+    """DTO for Facebook user information."""
+
+    id: str = Field(..., description="Facebook user ID")
+    name: Optional[str] = Field(None, description="Full name")
+    email: Optional[str] = Field(None, description="Facebook email")
+    first_name: Optional[str] = Field(None, description="First name")
+    last_name: Optional[str] = Field(None, description="Last name")
+    picture: Optional[Dict[str, Any]] = Field(None, description="Profile picture data")
+    locale: Optional[str] = Field(None, description="User locale")
+
+
 class SocialLinkDataDTO(BaseModel):
     """DTO for social link data."""
 
