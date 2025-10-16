@@ -14,7 +14,7 @@ class SocialPlatform(str, Enum):
     """Supported social platforms."""
 
     DISCORD = "discord"
-    TWITTER = "twitter"
+    TWITTER = "twitter"  # X (formerly Twitter)
     GITHUB = "github"
     TELEGRAM = "telegram"
     GOOGLE = "google"
@@ -101,6 +101,18 @@ class FacebookUserInfoDTO(BaseModel):
     last_name: Optional[str] = Field(None, description="Last name")
     picture: Optional[Dict[str, Any]] = Field(None, description="Profile picture data")
     locale: Optional[str] = Field(None, description="User locale")
+
+
+class XUserInfoDTO(BaseModel):
+    """DTO for X (Twitter) user information."""
+
+    id: str = Field(..., description="X user ID")
+    name: Optional[str] = Field(None, description="Display name")
+    username: str = Field(..., description="X username (handle)")
+    description: Optional[str] = Field(None, description="User bio")
+    profile_image_url: Optional[str] = Field(None, description="Profile image URL")
+    verified: Optional[bool] = Field(None, description="Is verified user")
+    created_at: Optional[str] = Field(None, description="Account creation date")
 
 
 class SocialLinkDataDTO(BaseModel):

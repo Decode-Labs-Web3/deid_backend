@@ -126,6 +126,11 @@ class Settings(BaseSettings):
     FACEBOOK_CLIENT_SECRET: Optional[str] = None
     FACEBOOK_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/facebook/callback"
 
+    # Twitter OAuth
+    X_CLIENT_ID: Optional[str] = None
+    X_CLIENT_SECRET: Optional[str] = None
+    X_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/x/callback"
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

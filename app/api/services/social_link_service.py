@@ -3,7 +3,10 @@ Social Link Service Layer.
 Contains business logic for social account verification and linking with MongoDB storage.
 """
 
+import base64
+import hashlib
 import json
+import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -21,6 +24,7 @@ from app.api.dto.social_dto import (
     SocialPlatform,
     SocialVerificationResponseDTO,
     VerificationStatus,
+    XUserInfoDTO,
 )
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -31,6 +35,7 @@ from app.domain.models.social_link import (
 )
 from app.domain.repositories.social_link_repository import social_link_repository
 from app.infrastructure.blockchain.signature_utils import sign_message_with_private_key
+from app.infrastructure.cache.cache_service import cache_service
 
 logger = get_logger(__name__)
 
@@ -48,6 +53,9 @@ class SocialLinkService:
         self.google_api_base = "https://www.googleapis.com"
         self.facebook_oauth_base = "https://www.facebook.com/v18.0/dialog"
         self.facebook_api_base = "https://graph.facebook.com/v18.0"
+        self.x_oauth_authorize_url = "https://twitter.com/i/oauth2/authorize"
+        self.x_oauth_token_url = "https://api.twitter.com/2/oauth2/token"
+        self.x_api_base = "https://api.twitter.com/2"
 
     async def get_discord_oauth_url(self, user_id: str) -> str:
         """
@@ -955,6 +963,338 @@ class SocialLinkService:
 
         except Exception as e:
             logger.error(f"Error getting Facebook user info: {e}")
+            return None
+
+    def _generate_pkce_pair(self) -> tuple[str, str]:
+        """
+        Generate PKCE code_verifier and code_challenge pair for OAuth2.
+
+        Returns:
+            Tuple of (code_verifier, code_challenge)
+        """
+        # Generate code_verifier: random string of 43-128 characters
+        code_verifier = (
+            base64.urlsafe_b64encode(secrets.token_bytes(32))
+            .decode("utf-8")
+            .rstrip("=")
+        )
+
+        # Generate code_challenge: SHA256 hash of code_verifier
+        code_challenge = (
+            base64.urlsafe_b64encode(
+                hashlib.sha256(code_verifier.encode("utf-8")).digest()
+            )
+            .decode("utf-8")
+            .rstrip("=")
+        )
+
+        return code_verifier, code_challenge
+
+    async def get_x_oauth_url(self, user_id: str) -> str:
+        """
+        Generate X (Twitter) OAuth2 authorization URL with PKCE.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+
+        Returns:
+            X OAuth2 authorization URL
+        """
+        if not settings.X_CLIENT_ID:
+            raise ValueError("X client ID not configured")
+
+        # Create state parameter with user_id for CSRF protection
+        state = f"deid_{user_id}"
+
+        # Generate PKCE pair
+        code_verifier, code_challenge = self._generate_pkce_pair()
+
+        # Store code_verifier in cache for later use (expires in 10 minutes)
+        cache_key = f"x_oauth_verifier:{state}"
+        logger.info(f"=== X OAuth URL Generation Debug ===")
+        logger.info(f"User ID: {user_id}")
+        logger.info(f"State: {state}")
+        logger.info(f"Cache key: {cache_key}")
+        logger.info(f"Code verifier (first 10 chars): {code_verifier[:10]}...")
+        logger.info(f"Code challenge (first 10 chars): {code_challenge[:10]}...")
+
+        cache_set_result = await cache_service.set(cache_key, code_verifier, expire=600)
+        logger.info(f"Code verifier stored in cache: {cache_set_result}")
+
+        # X OAuth2 scopes: tweet.read and users.read are basic
+        # Note: Email is NOT available via X API v2 even with user.read scope
+        params = {
+            "client_id": settings.X_CLIENT_ID,
+            "redirect_uri": settings.X_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "tweet.read users.read",
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+
+        auth_url = f"{self.x_oauth_authorize_url}?{urlencode(params)}"
+        logger.info(f"✓ Generated X OAuth URL for user {user_id}")
+        logger.info(f"Scopes: tweet.read users.read")
+        logger.info(f"Redirect URI: {settings.X_REDIRECT_URI}")
+
+        return auth_url
+
+    async def handle_x_oauth_callback(
+        self, code: str, state: str
+    ) -> SocialVerificationResponseDTO:
+        """
+        Handle X (Twitter) OAuth callback and verify user account.
+
+        Args:
+            code: Authorization code from X
+            state: State parameter for CSRF protection
+
+        Returns:
+            SocialVerificationResponseDTO with verification data
+        """
+        try:
+            # Extract user_id from state parameter
+            if not state.startswith("deid_"):
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Invalid state parameter",
+                    data=None,
+                    request_id=None,
+                )
+
+            user_id = state[5:]  # Remove "deid_" prefix
+
+            # Retrieve code_verifier from cache
+            cache_key = f"x_oauth_verifier:{state}"
+
+            code_verifier = await cache_service.get(cache_key)
+            if not code_verifier:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="OAuth session expired or invalid",
+                    data=None,
+                    request_id=None,
+                )
+
+            # Exchange code for access token
+            access_token = await self._exchange_x_code_for_token(code, code_verifier)
+            if not access_token:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to exchange code for access token",
+                    data=None,
+                    request_id=None,
+                )
+
+            # Get X user info
+            x_user = await self._get_x_user_info(access_token)
+            if not x_user:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to get X user information",
+                    data=None,
+                    request_id=None,
+                )
+
+            # Clean up cache
+            await cache_service.delete(cache_key)
+
+            # Check if this specific X account is already linked
+            existing_link = await social_link_repository.get_social_link_by_account(
+                user_id=user_id,
+                platform=SocialPlatform.TWITTER,
+                account_id=x_user.id,
+            )
+
+            if existing_link:
+                # Same X account already linked - return already linked status
+                return SocialVerificationResponseDTO(
+                    success=True,
+                    status_code=200,
+                    message="X account already linked",
+                    data={
+                        **self._convert_to_dto(existing_link),
+                        "status": VerificationStatus.ALREADY_LINKED.value,
+                    },
+                    request_id=str(uuid.uuid4()),
+                )
+            else:
+                # Create new social link
+                signature_data = await self._generate_verification_signature(
+                    account_id=x_user.id
+                )
+
+                if signature_data:
+                    create_data = SocialLinkCreateModel(
+                        user_id=user_id,
+                        platform=SocialPlatform.TWITTER,
+                        account_id=x_user.id,
+                        username=x_user.username,
+                        email=None,  # X API v2 doesn't provide email
+                        display_name=x_user.name or x_user.username,
+                        avatar_url=x_user.profile_image_url,
+                        signature=signature_data["signature"],
+                        verification_hash=signature_data["verification_hash"],
+                        status=VerificationStatus.VERIFIED,
+                    )
+
+                    created_link = await social_link_repository.create_social_link(
+                        create_data
+                    )
+
+                    if created_link:
+                        return SocialVerificationResponseDTO(
+                            success=True,
+                            status_code=200,
+                            message="X account verified successfully",
+                            data=self._convert_to_dto(created_link),
+                            request_id=str(uuid.uuid4()),
+                        )
+
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message="Failed to save verification data",
+                data=None,
+                request_id=None,
+            )
+
+        except Exception as e:
+            logger.error(f"Error in X OAuth callback: {e}")
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message=f"Internal server error: {str(e)}",
+                data=None,
+                request_id=None,
+            )
+
+    async def _exchange_x_code_for_token(
+        self, code: str, code_verifier: str
+    ) -> Optional[str]:
+        """Exchange X authorization code for access token using PKCE."""
+        try:
+            if not settings.X_CLIENT_SECRET:
+                raise ValueError("X client secret not configured")
+
+            # X OAuth2 requires Basic Auth with client_id:client_secret
+            auth_string = f"{settings.X_CLIENT_ID}:{settings.X_CLIENT_SECRET}"
+            basic_auth = base64.b64encode(auth_string.encode()).decode()
+
+            data = {
+                "code": code,
+                "grant_type": "authorization_code",
+                "client_id": settings.X_CLIENT_ID,
+                "redirect_uri": settings.X_REDIRECT_URI,
+                "code_verifier": code_verifier,
+            }
+
+            # Debug logging
+            logger.info("=== X OAuth Token Exchange Debug ===")
+            logger.info(f"Token endpoint: {self.x_oauth_token_url}")
+            logger.info(f"Client ID: {settings.X_CLIENT_ID}")
+            logger.info(f"Redirect URI: {settings.X_REDIRECT_URI}")
+            logger.info(f"Code (first 10 chars): {code[:10]}...")
+            logger.info(f"Code verifier (first 10 chars): {code_verifier[:10]}...")
+            logger.info(f"Grant type: authorization_code")
+            logger.info(f"Basic Auth header set: Yes")
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    self.x_oauth_token_url,
+                    data=data,
+                    headers={
+                        "Authorization": f"Basic {basic_auth}",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "User-Agent": "DEiD-Social-Link/1.0",
+                    },
+                )
+
+                logger.info(f"Response Status Code: {response.status_code}")
+                logger.info(f"Response Headers: {dict(response.headers)}")
+                logger.info(f"Response Body (raw): {response.text}")
+                logger.info(f"Response Body Length: {len(response.text)}")
+
+                if response.status_code == 200:
+                    # Check if response has content
+                    if not response.text:
+                        logger.error("✗ Response body is empty despite 200 status")
+                        return None
+
+                    try:
+                        token_data = response.json()
+                        logger.info(f"Token response parsed successfully")
+                        logger.info(f"Token response keys: {list(token_data.keys())}")
+
+                        access_token = token_data.get("access_token")
+                        if access_token:
+                            logger.info(
+                                f"✓ Access token received (length: {len(access_token)})"
+                            )
+                            return access_token
+                        else:
+                            logger.error(f"✗ No access token in response: {token_data}")
+                            return None
+                    except json.JSONDecodeError as e:
+                        logger.error(f"✗ Failed to parse JSON response: {e}")
+                        logger.error(f"Response text: {response.text[:500]}")
+                        return None
+                else:
+                    logger.error(
+                        f"✗ Token exchange failed: {response.status_code} - {response.text}"
+                    )
+                    # Try to parse error response
+                    try:
+                        error_data = response.json()
+                        logger.error(f"Error details: {error_data}")
+                    except:
+                        pass
+                    return None
+
+        except Exception as e:
+            logger.error(f"✗ Exception during X token exchange: {e}", exc_info=True)
+            return None
+
+    async def _get_x_user_info(self, access_token: str) -> Optional[XUserInfoDTO]:
+        """Get X user information using access token."""
+        try:
+            async with httpx.AsyncClient() as client:
+                # Get user info from X API v2
+                # Note: X API v2 does NOT provide email address
+                params = {
+                    "user.fields": "id,name,username,description,profile_image_url,verified,created_at"
+                }
+
+                response = await client.get(
+                    f"{self.x_api_base}/users/me",
+                    params=params,
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "User-Agent": "DEiD-Social-Link/1.0",
+                    },
+                )
+                response.raise_for_status()
+
+                response_data = response.json()
+                user_data = response_data.get("data", {})
+
+                return XUserInfoDTO(
+                    id=user_data["id"],
+                    name=user_data.get("name"),
+                    username=user_data["username"],
+                    description=user_data.get("description"),
+                    profile_image_url=user_data.get("profile_image_url"),
+                    verified=user_data.get("verified"),
+                    created_at=user_data.get("created_at"),
+                )
+
+        except Exception as e:
+            logger.error(f"Error getting X user info: {e}")
             return None
 
     async def _generate_verification_signature(

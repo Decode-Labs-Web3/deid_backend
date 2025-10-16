@@ -281,9 +281,6 @@ def get_oauth_error_template(
         <p class="subtitle">
             {error_message}
         </p>
-        <a href="javascript:window.close()" class="return-button">
-            Return to DEiD
-        </a>
     </div>
 
     <script>
@@ -570,9 +567,6 @@ def get_oauth_generic_error_template(error_message: str) -> str:
         <p class="subtitle">
             {error_message}
         </p>
-        <a href="javascript:window.close()" class="return-button">
-            Return to DEiD
-        </a>
     </div>
 
     <script>

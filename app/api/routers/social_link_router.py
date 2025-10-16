@@ -383,6 +383,90 @@ async def facebook_oauth_callback(
         return HTMLResponse(content=html_content, status_code=500)
 
 
+@router.get("/x/oauth-url")
+async def get_x_oauth_url(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Get X (Twitter) OAuth authorization URL.
+
+    Args:
+        current_user: Authenticated user
+
+    Returns:
+        Dict containing the OAuth URL
+    """
+    try:
+        oauth_url = await social_link_service.get_x_oauth_url(current_user.user_id)
+        return {
+            "success": True,
+            "oauth_url": oauth_url,
+            "message": "X OAuth URL generated successfully",
+        }
+    except Exception as e:
+        logger.error(f"Error generating X OAuth URL: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate OAuth URL: {str(e)}"
+        )
+
+
+@router.get("/x/callback", response_class=HTMLResponse)
+async def x_oauth_callback(
+    code: str = Query(..., description="Authorization code from X"),
+    state: str = Query(..., description="State parameter for CSRF protection"),
+):
+    """
+    Handle X (Twitter) OAuth callback and return HTML response.
+
+    Args:
+        code: Authorization code from X
+        state: State parameter for CSRF protection
+
+    Returns:
+        HTML response with success/error message
+    """
+    logger.info(f"X OAuth callback received - code: {code[:10]}..., state: {state}")
+
+    try:
+        result = await social_link_service.handle_x_oauth_callback(code, state)
+
+        if result.success:
+            # Check if account is already linked
+            if result.data["status"] == "already_linked":
+                # Already linked HTML response using template
+                html_content = get_oauth_already_linked_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"],
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+            else:
+                # Success HTML response using template
+                html_content = get_oauth_success_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"],
+                    signature=result.data["signature"],
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+        else:
+            # Error HTML response using template
+            html_content = get_oauth_error_template(
+                platform="X",
+                error_message=result.message,
+                status_code=result.status_code,
+            )
+            return HTMLResponse(content=html_content, status_code=400)
+
+    except Exception as e:
+        logger.error(f"Error in X OAuth callback: {e}")
+        # Generic error HTML response using template
+        html_content = get_oauth_generic_error_template(str(e))
+        return HTMLResponse(content=html_content, status_code=500)
+
+
 @router.post("/onchain-confirm")
 async def confirm_onchain_verification(
     request: OnchainConfirmRequestDTO,
@@ -630,6 +714,7 @@ async def health_check() -> dict:
             "github_oauth_verification",
             "google_oauth_verification",
             "facebook_oauth_verification",
+            "x_oauth_verification",
             "onchain_confirmation",
             "social_links_management",
         ],
