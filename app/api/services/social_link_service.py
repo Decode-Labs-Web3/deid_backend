@@ -13,6 +13,7 @@ import httpx
 
 from app.api.dto.social_dto import (
     DiscordUserInfoDTO,
+    FacebookUserInfoDTO,
     GitHubUserInfoDTO,
     GoogleUserInfoDTO,
     SocialLinkDataDTO,
@@ -45,6 +46,8 @@ class SocialLinkService:
         self.github_oauth_base = "https://github.com/login/oauth"
         self.google_oauth_base = "https://accounts.google.com/o/oauth2/v2"
         self.google_api_base = "https://www.googleapis.com"
+        self.facebook_oauth_base = "https://www.facebook.com/v18.0/dialog"
+        self.facebook_api_base = "https://graph.facebook.com/v18.0"
 
     async def get_discord_oauth_url(self, user_id: str) -> str:
         """
@@ -89,13 +92,8 @@ class SocialLinkService:
             SocialVerificationResponseDTO with verification data
         """
         try:
-            print(f"🔍 DEBUG: Discord OAuth callback received")
-            print(f"   Code: {code[:20]}...")
-            print(f"   State: {state}")
-
             # Extract user_id from state parameter
             if not state.startswith("deid_"):
-                print(f"❌ Invalid state parameter: {state}")
                 return SocialVerificationResponseDTO(
                     success=False,
                     status_code=400,
@@ -105,10 +103,8 @@ class SocialLinkService:
                 )
 
             user_id = state[5:]  # Remove "deid_" prefix
-            print(f"   Extracted user_id: {user_id}")
 
             # Exchange code for access token
-            print(f"🔄 Exchanging code for access token...")
             access_token = await self._exchange_discord_code_for_token(code)
             if not access_token:
                 return SocialVerificationResponseDTO(
@@ -130,54 +126,25 @@ class SocialLinkService:
                     request_id=None,
                 )
 
-            # Check if social link already exists
-            existing_link = await social_link_repository.get_social_link(
-                user_id=user_id, platform=SocialPlatform.DISCORD
+            # Check if this specific Discord account is already linked
+            existing_link = await social_link_repository.get_social_link_by_account(
+                user_id=user_id,
+                platform=SocialPlatform.DISCORD,
+                account_id=discord_user.id,
             )
 
             if existing_link:
-                # Check if this is the same Discord account
-                if existing_link.account_id == discord_user.id:
-                    # Same account - return already linked status
-                    return SocialVerificationResponseDTO(
-                        success=True,
-                        status_code=200,
-                        message="Discord account already linked",
-                        data={
-                            **self._convert_to_dto(existing_link),
-                            "status": VerificationStatus.ALREADY_LINKED.value,
-                        },
-                        request_id=str(uuid.uuid4()),
-                    )
-                else:
-                    # Different Discord account - update with new verification
-                    signature_data = await self._generate_verification_signature(
-                        account_id=discord_user.id
-                    )
-
-                    if signature_data:
-                        update_data = SocialLinkUpdateModel(
-                            username=discord_user.username,
-                            email=discord_user.email,
-                            signature=signature_data["signature"],
-                            verification_hash=signature_data["verification_hash"],
-                            status=VerificationStatus.VERIFIED,
-                        )
-
-                        updated_link = await social_link_repository.update_social_link(
-                            user_id=user_id,
-                            platform=SocialPlatform.DISCORD,
-                            update_data=update_data,
-                        )
-
-                        if updated_link:
-                            return SocialVerificationResponseDTO(
-                                success=True,
-                                status_code=200,
-                                message="Discord account re-verified successfully",
-                                data=self._convert_to_dto(updated_link),
-                                request_id=str(uuid.uuid4()),
-                            )
+                # Same Discord account already linked - return already linked status
+                return SocialVerificationResponseDTO(
+                    success=True,
+                    status_code=200,
+                    message="Discord account already linked",
+                    data={
+                        **self._convert_to_dto(existing_link),
+                        "status": VerificationStatus.ALREADY_LINKED.value,
+                    },
+                    request_id=str(uuid.uuid4()),
+                )
             else:
                 # Create new social link
                 signature_data = await self._generate_verification_signature(
@@ -249,18 +216,7 @@ class SocialLinkService:
                 "redirect_uri": settings.DISCORD_REDIRECT_URI,
             }
 
-            print(f"🔍 DEBUG: Exchanging code for token")
-            print(f"   Client ID: {settings.DISCORD_CLIENT_ID}")
-            print(f"   Client Secret: {settings.DISCORD_CLIENT_SECRET[:10]}...")
-            print(f"   Code: {code[:20]}...")
-            print(f"   Redirect URI: {settings.DISCORD_REDIRECT_URI}")
-            print(f"   Token URL: {self.discord_oauth_base}/token")
-            print(f"   Request Data: {data}")
-
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Try different approaches
-                print(f"🔄 Attempting token exchange...")
-
                 # Method 1: Standard form data
                 try:
                     response = await client.post(
@@ -272,54 +228,27 @@ class SocialLinkService:
                         },
                     )
 
-                    print(f"🔍 DEBUG: Token exchange response")
-                    print(f"   Status Code: {response.status_code}")
-                    print(
-                        f"   Content-Type: {response.headers.get('content-type', 'unknown')}"
-                    )
-                    print(f"   Response Length: {len(response.text)}")
-                    print(f"   Response Preview: {response.text[:200]}...")
-
                     if response.status_code == 200:
                         content_type = response.headers.get("content-type", "")
                         if "application/json" in content_type:
                             token_data = response.json()
-                            print(f"✅ JSON response received: {token_data}")
-
                             access_token = token_data.get("access_token")
                             if access_token:
-                                print(
-                                    f"✅ Access token received: {access_token[:20]}..."
-                                )
                                 return access_token
                             else:
-                                print(f"❌ No access token in response: {token_data}")
                                 return None
                         else:
-                            print(
-                                f"❌ Non-JSON response received (Content-Type: {content_type})"
-                            )
-                            print(
-                                f"   This suggests Discord doesn't recognize the redirect URI"
-                            )
                             return None
                     else:
-                        print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
                         return None
 
                 except httpx.HTTPStatusError as e:
-                    print(f"❌ HTTP Error: {e.response.status_code}")
-                    print(f"   Response: {e.response.text[:200]}")
                     return None
                 except Exception as e:
-                    print(f"❌ Request Error: {e}")
                     return None
 
         except Exception as e:
             logger.error(f"Error exchanging Discord code for token: {e}")
-            print(f"🔍 DEBUG: Exception details")
-            print(f"   Exception type: {type(e).__name__}")
-            print(f"   Exception message: {str(e)}")
             return None
 
     async def _get_discord_user_info(
@@ -390,13 +319,8 @@ class SocialLinkService:
             SocialVerificationResponseDTO with verification data
         """
         try:
-            print(f"🔍 DEBUG: GitHub OAuth callback received")
-            print(f"   Code: {code[:20]}...")
-            print(f"   State: {state}")
-
             # Extract user_id from state parameter
             if not state.startswith("deid_"):
-                print(f"❌ Invalid state parameter: {state}")
                 return SocialVerificationResponseDTO(
                     success=False,
                     status_code=400,
@@ -406,10 +330,8 @@ class SocialLinkService:
                 )
 
             user_id = state[5:]  # Remove "deid_" prefix
-            print(f"   Extracted user_id: {user_id}")
 
             # Exchange code for access token
-            print(f"🔄 Exchanging code for access token...")
             access_token = await self._exchange_github_code_for_token(code)
             if not access_token:
                 return SocialVerificationResponseDTO(
@@ -431,54 +353,25 @@ class SocialLinkService:
                     request_id=None,
                 )
 
-            # Check if social link already exists
-            existing_link = await social_link_repository.get_social_link(
-                user_id=user_id, platform=SocialPlatform.GITHUB
+            # Check if this specific GitHub account is already linked
+            existing_link = await social_link_repository.get_social_link_by_account(
+                user_id=user_id,
+                platform=SocialPlatform.GITHUB,
+                account_id=str(github_user.id),
             )
 
             if existing_link:
-                # Check if this is the same GitHub account
-                if existing_link.account_id == str(github_user.id):
-                    # Same account - return already linked status
-                    return SocialVerificationResponseDTO(
-                        success=True,
-                        status_code=200,
-                        message="GitHub account already linked",
-                        data={
-                            **self._convert_to_dto(existing_link),
-                            "status": VerificationStatus.ALREADY_LINKED.value,
-                        },
-                        request_id=str(uuid.uuid4()),
-                    )
-                else:
-                    # Different GitHub account - update with new verification
-                    signature_data = await self._generate_verification_signature(
-                        account_id=str(github_user.id)
-                    )
-
-                    if signature_data:
-                        update_data = SocialLinkUpdateModel(
-                            username=github_user.login,
-                            email=github_user.email,
-                            signature=signature_data["signature"],
-                            verification_hash=signature_data["verification_hash"],
-                            status=VerificationStatus.VERIFIED,
-                        )
-
-                        updated_link = await social_link_repository.update_social_link(
-                            user_id=user_id,
-                            platform=SocialPlatform.GITHUB,
-                            update_data=update_data,
-                        )
-
-                        if updated_link:
-                            return SocialVerificationResponseDTO(
-                                success=True,
-                                status_code=200,
-                                message="GitHub account re-verified successfully",
-                                data=self._convert_to_dto(updated_link),
-                                request_id=str(uuid.uuid4()),
-                            )
+                # Same GitHub account already linked - return already linked status
+                return SocialVerificationResponseDTO(
+                    success=True,
+                    status_code=200,
+                    message="GitHub account already linked",
+                    data={
+                        **self._convert_to_dto(existing_link),
+                        "status": VerificationStatus.ALREADY_LINKED.value,
+                    },
+                    request_id=str(uuid.uuid4()),
+                )
             else:
                 # Create new social link
                 signature_data = await self._generate_verification_signature(
@@ -542,11 +435,6 @@ class SocialLinkService:
                 "code": code,
             }
 
-            print(f"🔍 DEBUG: Exchanging GitHub code for token")
-            print(f"   Client ID: {settings.GITHUB_CLIENT_ID}")
-            print(f"   Client Secret: {settings.GITHUB_CLIENT_SECRET[:10]}...")
-            print(f"   Code: {code[:20]}...")
-
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.github_oauth_base}/access_token",
@@ -557,30 +445,18 @@ class SocialLinkService:
                     },
                 )
 
-                print(f"🔍 DEBUG: GitHub token exchange response")
-                print(f"   Status Code: {response.status_code}")
-                print(f"   Response Preview: {response.text[:200]}...")
-
                 if response.status_code == 200:
                     token_data = response.json()
-                    print(f"✅ Token response received: {token_data}")
-
                     access_token = token_data.get("access_token")
                     if access_token:
-                        print(f"✅ Access token received: {access_token[:20]}...")
                         return access_token
                     else:
-                        print(f"❌ No access token in response: {token_data}")
                         return None
                 else:
-                    print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
                     return None
 
         except Exception as e:
             logger.error(f"Error exchanging GitHub code for token: {e}")
-            print(f"🔍 DEBUG: Exception details")
-            print(f"   Exception type: {type(e).__name__}")
-            print(f"   Exception message: {str(e)}")
             return None
 
     async def _get_github_user_info(
@@ -666,13 +542,8 @@ class SocialLinkService:
             SocialVerificationResponseDTO with verification data
         """
         try:
-            print(f"🔍 DEBUG: Google OAuth callback received")
-            print(f"   Code: {code[:20]}...")
-            print(f"   State: {state}")
-
             # Extract user_id from state parameter
             if not state.startswith("deid_"):
-                print(f"❌ Invalid state parameter: {state}")
                 return SocialVerificationResponseDTO(
                     success=False,
                     status_code=400,
@@ -682,10 +553,8 @@ class SocialLinkService:
                 )
 
             user_id = state[5:]  # Remove "deid_" prefix
-            print(f"   Extracted user_id: {user_id}")
 
             # Exchange code for access token
-            print(f"🔄 Exchanging code for access token...")
             access_token = await self._exchange_google_code_for_token(code)
             if not access_token:
                 return SocialVerificationResponseDTO(
@@ -707,54 +576,25 @@ class SocialLinkService:
                     request_id=None,
                 )
 
-            # Check if social link already exists
-            existing_link = await social_link_repository.get_social_link(
-                user_id=user_id, platform=SocialPlatform.GOOGLE
+            # Check if this specific Google account is already linked
+            existing_link = await social_link_repository.get_social_link_by_account(
+                user_id=user_id,
+                platform=SocialPlatform.GOOGLE,
+                account_id=google_user.id,
             )
 
             if existing_link:
-                # Check if this is the same Google account
-                if existing_link.account_id == google_user.id:
-                    # Same account - return already linked status
-                    return SocialVerificationResponseDTO(
-                        success=True,
-                        status_code=200,
-                        message="Google account already linked",
-                        data={
-                            **self._convert_to_dto(existing_link),
-                            "status": VerificationStatus.ALREADY_LINKED.value,
-                        },
-                        request_id=str(uuid.uuid4()),
-                    )
-                else:
-                    # Different Google account - update with new verification
-                    signature_data = await self._generate_verification_signature(
-                        account_id=google_user.id
-                    )
-
-                    if signature_data:
-                        update_data = SocialLinkUpdateModel(
-                            username=google_user.email,
-                            email=google_user.email,
-                            signature=signature_data["signature"],
-                            verification_hash=signature_data["verification_hash"],
-                            status=VerificationStatus.VERIFIED,
-                        )
-
-                        updated_link = await social_link_repository.update_social_link(
-                            user_id=user_id,
-                            platform=SocialPlatform.GOOGLE,
-                            update_data=update_data,
-                        )
-
-                        if updated_link:
-                            return SocialVerificationResponseDTO(
-                                success=True,
-                                status_code=200,
-                                message="Google account re-verified successfully",
-                                data=self._convert_to_dto(updated_link),
-                                request_id=str(uuid.uuid4()),
-                            )
+                # Same Google account already linked - return already linked status
+                return SocialVerificationResponseDTO(
+                    success=True,
+                    status_code=200,
+                    message="Google account already linked",
+                    data={
+                        **self._convert_to_dto(existing_link),
+                        "status": VerificationStatus.ALREADY_LINKED.value,
+                    },
+                    request_id=str(uuid.uuid4()),
+                )
             else:
                 # Create new social link
                 signature_data = await self._generate_verification_signature(
@@ -820,11 +660,6 @@ class SocialLinkService:
                 "grant_type": "authorization_code",
             }
 
-            print(f"🔍 DEBUG: Exchanging Google code for token")
-            print(f"   Client ID: {settings.GOOGLE_CLIENT_ID}")
-            print(f"   Client Secret: {settings.GOOGLE_CLIENT_SECRET[:10]}...")
-            print(f"   Code: {code[:20]}...")
-
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     "https://oauth2.googleapis.com/token",
@@ -835,30 +670,18 @@ class SocialLinkService:
                     },
                 )
 
-                print(f"🔍 DEBUG: Google token exchange response")
-                print(f"   Status Code: {response.status_code}")
-                print(f"   Response Preview: {response.text[:200]}...")
-
                 if response.status_code == 200:
                     token_data = response.json()
-                    print(f"✅ Token response received: {token_data}")
-
                     access_token = token_data.get("access_token")
                     if access_token:
-                        print(f"✅ Access token received: {access_token[:20]}...")
                         return access_token
                     else:
-                        print(f"❌ No access token in response: {token_data}")
                         return None
                 else:
-                    print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
                     return None
 
         except Exception as e:
             logger.error(f"Error exchanging Google code for token: {e}")
-            print(f"🔍 DEBUG: Exception details")
-            print(f"   Exception type: {type(e).__name__}")
-            print(f"   Exception message: {str(e)}")
             return None
 
     async def _get_google_user_info(
@@ -892,6 +715,246 @@ class SocialLinkService:
 
         except Exception as e:
             logger.error(f"Error getting Google user info: {e}")
+            return None
+
+    async def get_facebook_oauth_url(self, user_id: str) -> str:
+        """
+        Generate Facebook OAuth authorization URL.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+
+        Returns:
+            Facebook OAuth authorization URL
+        """
+        if not settings.FACEBOOK_CLIENT_ID:
+            raise ValueError("Facebook client ID not configured")
+
+        # Create state parameter with user_id for CSRF protection
+        state = f"deid_{user_id}"
+
+        # Note: 'public_profile' is granted by default
+        # 'email' permission requires App Review for production use
+        # For development, only request public_profile
+        params = {
+            "client_id": settings.FACEBOOK_CLIENT_ID,
+            "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "public_profile",
+            "state": state,
+        }
+
+        auth_url = f"{self.facebook_oauth_base}/oauth?{urlencode(params)}"
+        logger.info(f"Generated Facebook OAuth URL for user {user_id}")
+
+        return auth_url
+
+    async def handle_facebook_oauth_callback(
+        self, code: str, state: str
+    ) -> SocialVerificationResponseDTO:
+        """
+        Handle Facebook OAuth callback and verify user account.
+
+        Args:
+            code: Authorization code from Facebook
+            state: State parameter for CSRF protection
+
+        Returns:
+            SocialVerificationResponseDTO with verification data
+        """
+        try:
+            # Extract user_id from state parameter
+            if not state.startswith("deid_"):
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Invalid state parameter",
+                    data=None,
+                    request_id=None,
+                )
+
+            user_id = state[5:]  # Remove "deid_" prefix
+
+            # Exchange code for access token
+            access_token = await self._exchange_facebook_code_for_token(code)
+            if not access_token:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to exchange code for access token",
+                    data=None,
+                    request_id=None,
+                )
+
+            # Get Facebook user info
+            facebook_user = await self._get_facebook_user_info(access_token)
+            if not facebook_user:
+                return SocialVerificationResponseDTO(
+                    success=False,
+                    status_code=400,
+                    message="Failed to get Facebook user information",
+                    data=None,
+                    request_id=None,
+                )
+
+            # Check if this specific Facebook account is already linked
+            existing_link = await social_link_repository.get_social_link_by_account(
+                user_id=user_id,
+                platform=SocialPlatform.FACEBOOK,
+                account_id=facebook_user.id,
+            )
+
+            if existing_link:
+                # Same Facebook account already linked - return already linked status
+                return SocialVerificationResponseDTO(
+                    success=True,
+                    status_code=200,
+                    message="Facebook account already linked",
+                    data={
+                        **self._convert_to_dto(existing_link),
+                        "status": VerificationStatus.ALREADY_LINKED.value,
+                    },
+                    request_id=str(uuid.uuid4()),
+                )
+            else:
+                # Create new social link
+                signature_data = await self._generate_verification_signature(
+                    account_id=facebook_user.id
+                )
+
+                if signature_data:
+                    # Extract picture URL if available
+                    avatar_url = None
+                    if facebook_user.picture and isinstance(
+                        facebook_user.picture, dict
+                    ):
+                        avatar_url = facebook_user.picture.get("data", {}).get("url")
+
+                    # Create display name from available name fields
+                    display_name = facebook_user.name
+                    if not display_name and facebook_user.first_name:
+                        display_name = f"{facebook_user.first_name} {facebook_user.last_name or ''}".strip()
+
+                    create_data = SocialLinkCreateModel(
+                        user_id=user_id,
+                        platform=SocialPlatform.FACEBOOK,
+                        account_id=facebook_user.id,
+                        username=facebook_user.email or facebook_user.id,
+                        email=facebook_user.email,
+                        display_name=display_name,
+                        avatar_url=avatar_url,
+                        signature=signature_data["signature"],
+                        verification_hash=signature_data["verification_hash"],
+                        status=VerificationStatus.VERIFIED,
+                    )
+
+                    created_link = await social_link_repository.create_social_link(
+                        create_data
+                    )
+
+                    if created_link:
+                        return SocialVerificationResponseDTO(
+                            success=True,
+                            status_code=200,
+                            message="Facebook account verified successfully",
+                            data=self._convert_to_dto(created_link),
+                            request_id=str(uuid.uuid4()),
+                        )
+
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message="Failed to save verification data",
+                data=None,
+                request_id=None,
+            )
+
+        except Exception as e:
+            logger.error(f"Error in Facebook OAuth callback: {e}")
+            return SocialVerificationResponseDTO(
+                success=False,
+                status_code=500,
+                message=f"Internal server error: {str(e)}",
+                data=None,
+                request_id=None,
+            )
+
+    async def _exchange_facebook_code_for_token(self, code: str) -> Optional[str]:
+        """Exchange Facebook authorization code for access token."""
+        try:
+            if not settings.FACEBOOK_CLIENT_SECRET:
+                raise ValueError("Facebook client secret not configured")
+
+            params = {
+                "client_id": settings.FACEBOOK_CLIENT_ID,
+                "client_secret": settings.FACEBOOK_CLIENT_SECRET,
+                "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+                "code": code,
+            }
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    f"{self.facebook_api_base}/oauth/access_token",
+                    params=params,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "DEiD-Social-Link/1.0",
+                    },
+                )
+
+                if response.status_code == 200:
+                    token_data = response.json()
+                    access_token = token_data.get("access_token")
+                    if access_token:
+                        return access_token
+                    else:
+                        return None
+                else:
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error exchanging Facebook code for token: {e}")
+            return None
+
+    async def _get_facebook_user_info(
+        self, access_token: str
+    ) -> Optional[FacebookUserInfoDTO]:
+        """Get Facebook user information using access token."""
+        try:
+            async with httpx.AsyncClient() as client:
+                # Get user info from Facebook Graph API
+                # Note: email field requires 'email' permission which needs App Review
+                # For development, only request public_profile fields
+                params = {
+                    "fields": "id,name,first_name,last_name,picture.type(large)",
+                    "access_token": access_token,
+                }
+
+                response = await client.get(
+                    f"{self.facebook_api_base}/me",
+                    params=params,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "DEiD-Social-Link/1.0",
+                    },
+                )
+                response.raise_for_status()
+
+                user_data = response.json()
+                return FacebookUserInfoDTO(
+                    id=user_data["id"],
+                    name=user_data.get("name"),
+                    email=user_data.get(
+                        "email"
+                    ),  # Will be None without email permission
+                    first_name=user_data.get("first_name"),
+                    last_name=user_data.get("last_name"),
+                    picture=user_data.get("picture"),
+                    locale=user_data.get("locale"),
+                )
+
+        except Exception as e:
+            logger.error(f"Error getting Facebook user info: {e}")
             return None
 
     async def _generate_verification_signature(
@@ -1075,6 +1138,53 @@ class SocialLinkService:
         except Exception as e:
             logger.error(f"Error getting user social links: {e}")
             return []
+
+    async def delete_social_link(
+        self, user_id: str, platform: SocialPlatform, account_id: str
+    ) -> bool:
+        """
+        Delete a specific social account link.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+            platform: Social platform
+            account_id: Social account ID to delete
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        try:
+            deleted = await social_link_repository.delete_social_link_by_account(
+                user_id=user_id, platform=platform, account_id=account_id
+            )
+            return deleted
+
+        except Exception as e:
+            logger.error(f"Error deleting social link: {e}")
+            return False
+
+    async def delete_all_platform_links(
+        self, user_id: str, platform: SocialPlatform
+    ) -> bool:
+        """
+        Delete all social accounts for a specific platform.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+            platform: Social platform
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        try:
+            deleted = await social_link_repository.delete_social_link(
+                user_id=user_id, platform=platform
+            )
+            return deleted
+
+        except Exception as e:
+            logger.error(f"Error deleting all platform links: {e}")
+            return False
 
     async def get_user_social_link_stats(self, user_id: str) -> SocialLinkStatsDTO:
         """

@@ -2,21 +2,26 @@
 MongoDB repository for social account links.
 """
 
-from typing import List, Optional
 from datetime import datetime, timezone
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
+from typing import List, Optional
+
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorDatabase,
+)
 from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import DuplicateKeyError
 
-from app.core.config import get_mongodb_url, get_mongodb_database_name
+from app.core.config import get_mongodb_database_name, get_mongodb_url
 from app.core.logging import get_logger
 from app.domain.models.social_link import (
-    SocialLinkModel,
     SocialLinkCreateModel,
-    SocialLinkUpdateModel,
+    SocialLinkModel,
     SocialLinkQueryModel,
+    SocialLinkUpdateModel,
     SocialPlatform,
-    VerificationStatus
+    VerificationStatus,
 )
 
 logger = get_logger(__name__)
@@ -50,7 +55,9 @@ class SocialLinkRepository:
             await self._create_indexes()
 
             self._initialized = True
-            logger.info(f"SocialLinkRepository initialized with database: {database_name}")
+            logger.info(
+                f"SocialLinkRepository initialized with database: {database_name}"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize SocialLinkRepository: {e}")
@@ -59,35 +66,44 @@ class SocialLinkRepository:
     async def _create_indexes(self):
         """Create database indexes for optimal performance."""
         try:
-            # Compound index for user_id and platform (unique constraint)
+            # Drop old unique index if it exists (allows migration to new constraint)
+            try:
+                await self.collection.drop_index("user_platform_unique")
+                logger.info("Dropped old user_platform_unique index")
+            except Exception:
+                pass  # Index doesn't exist, which is fine
+
+            # Compound unique index for user_id, platform, and account_id
+            # This prevents the same social account from being linked twice to the same user
+            # BUT allows multiple different accounts per platform per user
             await self.collection.create_index(
-                [("user_id", ASCENDING), ("platform", ASCENDING)],
+                [
+                    ("user_id", ASCENDING),
+                    ("platform", ASCENDING),
+                    ("account_id", ASCENDING),
+                ],
                 unique=True,
-                name="user_platform_unique"
+                name="user_platform_account_unique",
             )
 
             # Index for user_id queries
             await self.collection.create_index(
-                [("user_id", ASCENDING)],
-                name="user_id_index"
+                [("user_id", ASCENDING)], name="user_id_index"
             )
 
             # Index for platform queries
             await self.collection.create_index(
-                [("platform", ASCENDING)],
-                name="platform_index"
+                [("platform", ASCENDING)], name="platform_index"
             )
 
             # Index for status queries
             await self.collection.create_index(
-                [("status", ASCENDING)],
-                name="status_index"
+                [("status", ASCENDING)], name="status_index"
             )
 
             # Index for created_at queries
             await self.collection.create_index(
-                [("created_at", DESCENDING)],
-                name="created_at_index"
+                [("created_at", DESCENDING)], name="created_at_index"
             )
 
             logger.info("Social link indexes created successfully")
@@ -96,7 +112,9 @@ class SocialLinkRepository:
             logger.error(f"Failed to create indexes: {e}")
             # Don't raise here as the app can still work without indexes
 
-    async def create_social_link(self, social_link: SocialLinkCreateModel) -> Optional[SocialLinkModel]:
+    async def create_social_link(
+        self, social_link: SocialLinkCreateModel
+    ) -> Optional[SocialLinkModel]:
         """
         Create a new social link.
 
@@ -119,7 +137,9 @@ class SocialLinkRepository:
 
             if result.inserted_id:
                 # Fetch the created document
-                created_doc = await self.collection.find_one({"_id": result.inserted_id})
+                created_doc = await self.collection.find_one(
+                    {"_id": result.inserted_id}
+                )
                 if created_doc:
                     created_doc["id"] = str(created_doc["_id"])
                     return SocialLinkModel(**created_doc)
@@ -127,15 +147,20 @@ class SocialLinkRepository:
             return None
 
         except DuplicateKeyError:
-            logger.warning(f"Social link already exists for user {social_link.user_id} and platform {social_link.platform}")
+            logger.warning(
+                f"Social link already exists for user {social_link.user_id} and platform {social_link.platform}"
+            )
             return None
         except Exception as e:
             logger.error(f"Failed to create social link: {e}")
             return None
 
-    async def get_social_link(self, user_id: str, platform: SocialPlatform) -> Optional[SocialLinkModel]:
+    async def get_social_link(
+        self, user_id: str, platform: SocialPlatform
+    ) -> Optional[SocialLinkModel]:
         """
         Get a social link by user ID and platform.
+        Note: If multiple accounts exist for the same platform, returns the first one.
 
         Args:
             user_id: User's wallet address or unique identifier
@@ -147,10 +172,9 @@ class SocialLinkRepository:
         await self.initialize()
 
         try:
-            doc = await self.collection.find_one({
-                "user_id": user_id,
-                "platform": platform.value
-            })
+            doc = await self.collection.find_one(
+                {"user_id": user_id, "platform": platform.value}
+            )
 
             if doc:
                 doc["id"] = str(doc["_id"])
@@ -162,10 +186,43 @@ class SocialLinkRepository:
             logger.error(f"Failed to get social link: {e}")
             return None
 
+    async def get_social_link_by_account(
+        self, user_id: str, platform: SocialPlatform, account_id: str
+    ) -> Optional[SocialLinkModel]:
+        """
+        Get a social link by user ID, platform, and account ID.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+            platform: Social platform
+            account_id: Social account ID
+
+        Returns:
+            Social link model or None if not found
+        """
+        await self.initialize()
+
+        try:
+            doc = await self.collection.find_one(
+                {
+                    "user_id": user_id,
+                    "platform": platform.value,
+                    "account_id": account_id,
+                }
+            )
+
+            if doc:
+                doc["id"] = str(doc["_id"])
+                return SocialLinkModel(**doc)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get social link by account: {e}")
+            return None
+
     async def get_user_social_links(
-        self,
-        user_id: str,
-        status: Optional[VerificationStatus] = None
+        self, user_id: str, status: Optional[VerificationStatus] = None
     ) -> List[SocialLinkModel]:
         """
         Get all social links for a user.
@@ -199,10 +256,7 @@ class SocialLinkRepository:
             return []
 
     async def update_social_link(
-        self,
-        user_id: str,
-        platform: SocialPlatform,
-        update_data: SocialLinkUpdateModel
+        self, user_id: str, platform: SocialPlatform, update_data: SocialLinkUpdateModel
     ) -> Optional[SocialLinkModel]:
         """
         Update a social link.
@@ -224,16 +278,14 @@ class SocialLinkRepository:
 
             # Update document
             result = await self.collection.update_one(
-                {"user_id": user_id, "platform": platform.value},
-                {"$set": update_doc}
+                {"user_id": user_id, "platform": platform.value}, {"$set": update_doc}
             )
 
             if result.modified_count > 0:
                 # Fetch updated document
-                updated_doc = await self.collection.find_one({
-                    "user_id": user_id,
-                    "platform": platform.value
-                })
+                updated_doc = await self.collection.find_one(
+                    {"user_id": user_id, "platform": platform.value}
+                )
                 if updated_doc:
                     updated_doc["id"] = str(updated_doc["_id"])
                     return SocialLinkModel(**updated_doc)
@@ -246,7 +298,8 @@ class SocialLinkRepository:
 
     async def delete_social_link(self, user_id: str, platform: SocialPlatform) -> bool:
         """
-        Delete a social link.
+        Delete all social links for a platform.
+        Note: This deletes all accounts linked for this platform.
 
         Args:
             user_id: User's wallet address or unique identifier
@@ -258,10 +311,9 @@ class SocialLinkRepository:
         await self.initialize()
 
         try:
-            result = await self.collection.delete_one({
-                "user_id": user_id,
-                "platform": platform.value
-            })
+            result = await self.collection.delete_many(
+                {"user_id": user_id, "platform": platform.value}
+            )
 
             return result.deleted_count > 0
 
@@ -269,7 +321,40 @@ class SocialLinkRepository:
             logger.error(f"Failed to delete social link: {e}")
             return False
 
-    async def query_social_links(self, query_model: SocialLinkQueryModel) -> List[SocialLinkModel]:
+    async def delete_social_link_by_account(
+        self, user_id: str, platform: SocialPlatform, account_id: str
+    ) -> bool:
+        """
+        Delete a specific social account link.
+
+        Args:
+            user_id: User's wallet address or unique identifier
+            platform: Social platform
+            account_id: Social account ID
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        await self.initialize()
+
+        try:
+            result = await self.collection.delete_one(
+                {
+                    "user_id": user_id,
+                    "platform": platform.value,
+                    "account_id": account_id,
+                }
+            )
+
+            return result.deleted_count > 0
+
+        except Exception as e:
+            logger.error(f"Failed to delete social link by account: {e}")
+            return False
+
+    async def query_social_links(
+        self, query_model: SocialLinkQueryModel
+    ) -> List[SocialLinkModel]:
         """
         Query social links with filters.
 
@@ -322,24 +407,13 @@ class SocialLinkRepository:
         try:
             pipeline = [
                 {"$match": {"user_id": user_id}},
-                {
-                    "$group": {
-                        "_id": "$status",
-                        "count": {"$sum": 1}
-                    }
-                }
+                {"$group": {"_id": "$status", "count": {"$sum": 1}}},
             ]
 
             cursor = self.collection.aggregate(pipeline)
             results = await cursor.to_list(length=None)
 
-            stats = {
-                "total": 0,
-                "verified": 0,
-                "onchain": 0,
-                "pending": 0,
-                "failed": 0
-            }
+            stats = {"total": 0, "verified": 0, "onchain": 0, "pending": 0, "failed": 0}
 
             for result in results:
                 status = result["_id"]

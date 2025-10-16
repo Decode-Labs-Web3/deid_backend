@@ -295,6 +295,94 @@ async def google_oauth_callback(
         return HTMLResponse(content=html_content, status_code=500)
 
 
+@router.get("/facebook/oauth-url")
+async def get_facebook_oauth_url(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Get Facebook OAuth authorization URL.
+
+    Args:
+        current_user: Authenticated user
+
+    Returns:
+        Dict containing the OAuth URL
+    """
+    try:
+        oauth_url = await social_link_service.get_facebook_oauth_url(
+            current_user.user_id
+        )
+        return {
+            "success": True,
+            "oauth_url": oauth_url,
+            "message": "Facebook OAuth URL generated successfully",
+        }
+    except Exception as e:
+        logger.error(f"Error generating Facebook OAuth URL: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate OAuth URL: {str(e)}"
+        )
+
+
+@router.get("/facebook/callback", response_class=HTMLResponse)
+async def facebook_oauth_callback(
+    code: str = Query(..., description="Authorization code from Facebook"),
+    state: str = Query(..., description="State parameter for CSRF protection"),
+):
+    """
+    Handle Facebook OAuth callback and return HTML response.
+
+    Args:
+        code: Authorization code from Facebook
+        state: State parameter for CSRF protection
+
+    Returns:
+        HTML response with success/error message
+    """
+    logger.info(
+        f"Facebook OAuth callback received - code: {code[:10]}..., state: {state}"
+    )
+
+    try:
+        result = await social_link_service.handle_facebook_oauth_callback(code, state)
+
+        if result.success:
+            # Check if account is already linked
+            if result.data["status"] == "already_linked":
+                # Already linked HTML response using template
+                html_content = get_oauth_already_linked_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"],
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+            else:
+                # Success HTML response using template
+                html_content = get_oauth_success_template(
+                    platform=result.data["platform"],
+                    username=result.data["username"],
+                    account_id=result.data["account_id"],
+                    status=result.data["status"],
+                    signature=result.data["signature"],
+                )
+                return HTMLResponse(content=html_content, status_code=200)
+        else:
+            # Error HTML response using template
+            html_content = get_oauth_error_template(
+                platform="Facebook",
+                error_message=result.message,
+                status_code=result.status_code,
+            )
+            return HTMLResponse(content=html_content, status_code=400)
+
+    except Exception as e:
+        logger.error(f"Error in Facebook OAuth callback: {e}")
+        # Generic error HTML response using template
+        html_content = get_oauth_generic_error_template(str(e))
+        return HTMLResponse(content=html_content, status_code=500)
+
+
 @router.post("/onchain-confirm")
 async def confirm_onchain_verification(
     request: OnchainConfirmRequestDTO,
@@ -413,6 +501,119 @@ async def get_user_social_link_stats(
         )
 
 
+@router.delete("/unlink/{platform}/{account_id}")
+async def unlink_social_account(
+    platform: str,
+    account_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Unlink a specific social account from the user's DEiD profile.
+
+    Args:
+        platform: Social platform (discord, github, google, twitter, telegram)
+        account_id: Specific account ID to unlink
+        current_user: Authenticated user
+
+    Returns:
+        Dict with success status and message
+    """
+    logger.info(
+        f"Unlinking {platform} account {account_id} for user: {current_user.user_id}"
+    )
+
+    try:
+        # Validate platform
+        from app.api.dto.social_dto import SocialPlatform
+
+        try:
+            social_platform = SocialPlatform(platform.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid platform: {platform}. Supported platforms: discord, github, google, twitter, telegram",
+            )
+
+        # Delete the specific social link
+        deleted = await social_link_service.delete_social_link(
+            current_user.user_id, social_platform, account_id
+        )
+
+        if deleted:
+            return {
+                "success": True,
+                "message": f"{platform.title()} account unlinked successfully",
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No {platform.title()} account found with that ID to unlink",
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unlinking {platform} account: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to unlink {platform} account: {str(e)}"
+        )
+
+
+@router.delete("/unlink/{platform}")
+async def unlink_all_platform_accounts(
+    platform: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> dict:
+    """
+    Unlink ALL accounts of a specific platform from the user's DEiD profile.
+
+    Args:
+        platform: Social platform to unlink all accounts from (discord, github, google, twitter, telegram)
+        current_user: Authenticated user
+
+    Returns:
+        Dict with success status and message
+    """
+    logger.info(f"Unlinking all {platform} accounts for user: {current_user.user_id}")
+
+    try:
+        # Validate platform
+        from app.api.dto.social_dto import SocialPlatform
+
+        try:
+            social_platform = SocialPlatform(platform.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid platform: {platform}. Supported platforms: discord, github, google, twitter, telegram",
+            )
+
+        # Delete all social links for this platform
+        deleted = await social_link_service.delete_all_platform_links(
+            current_user.user_id, social_platform
+        )
+
+        if deleted:
+            return {
+                "success": True,
+                "message": f"All {platform.title()} accounts unlinked successfully",
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No {platform.title()} accounts found to unlink",
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unlinking all {platform} accounts: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to unlink all {platform} accounts: {str(e)}",
+        )
+
+
 @router.get("/health")
 async def health_check() -> dict:
     """
@@ -428,8 +629,16 @@ async def health_check() -> dict:
             "discord_oauth_verification",
             "github_oauth_verification",
             "google_oauth_verification",
+            "facebook_oauth_verification",
             "onchain_confirmation",
             "social_links_management",
         ],
-        "supported_platforms": ["discord", "github", "google", "twitter", "telegram"],
+        "supported_platforms": [
+            "discord",
+            "github",
+            "google",
+            "facebook",
+            "twitter",
+            "telegram",
+        ],
     }
