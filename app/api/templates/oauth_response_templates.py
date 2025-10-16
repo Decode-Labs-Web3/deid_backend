@@ -7,11 +7,7 @@ from typing import Optional
 
 
 def get_oauth_success_template(
-    platform: str,
-    username: str,
-    account_id: str,
-    status: str,
-    signature: str
+    platform: str, username: str, account_id: str, status: str, signature: str
 ) -> str:
     """
     Generate HTML template for successful OAuth verification.
@@ -82,35 +78,17 @@ def get_oauth_success_template(
             font-weight: 500;
             color: #A0A0A0;
             line-height: 1.6;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }}
 
-        .return-button {{
-            background: linear-gradient(135deg, #4BFFA8, #10B981);
-            color: #000000;
-            border: none;
-            border-radius: 3rem;
-            padding: 1.25rem 3rem;
-            font-size: 1.125rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-transform: uppercase;
+        .closing-message {{
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #666666;
+            margin-top: 2rem;
             letter-spacing: 0.05em;
-            box-shadow: 0 8px 24px rgba(75, 255, 168, 0.4);
-        }}
-
-        .return-button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(75, 255, 168, 0.5);
-        }}
-
-        .return-button:active {{
-            transform: translateY(0);
         }}
 
         @media (max-width: 640px) {{
@@ -126,12 +104,11 @@ def get_oauth_success_template(
 
             .subtitle {{
                 font-size: 0.875rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }}
 
-            .return-button {{
-                padding: 1rem 2.5rem;
-                font-size: 1rem;
+            .closing-message {{
+                font-size: 0.75rem;
             }}
         }}
     </style>
@@ -143,16 +120,28 @@ def get_oauth_success_template(
         <p class="subtitle">
             Your {platform.title()} account has been successfully verified and linked to your DEiD profile.
         </p>
-        <a href="javascript:window.close()" class="return-button">
-            Return to DEiD
-        </a>
+        <p class="closing-message">
+            This window will close automatically in <span id="countdown">5</span> seconds...
+        </p>
     </div>
 
     <script>
-        // Auto-close after 10 seconds
+        // Countdown timer
+        let seconds = 5;
+        const countdownElement = document.getElementById('countdown');
+
+        const interval = setInterval(() => {{
+            seconds--;
+            countdownElement.textContent = seconds;
+            if (seconds <= 0) {{
+                clearInterval(interval);
+            }}
+        }}, 1000);
+
+        // Auto-close after 5 seconds
         setTimeout(() => {{
             window.close();
-        }}, 10000);
+        }}, 5000);
     </script>
 </body>
 </html>
@@ -160,9 +149,7 @@ def get_oauth_success_template(
 
 
 def get_oauth_error_template(
-    platform: str,
-    error_message: str,
-    status_code: Optional[int] = None
+    platform: str, error_message: str, status_code: Optional[int] = None
 ) -> str:
     """
     Generate HTML template for OAuth verification error.
@@ -311,10 +298,7 @@ def get_oauth_error_template(
 
 
 def get_oauth_already_linked_template(
-    platform: str,
-    username: str,
-    account_id: str,
-    status: str
+    platform: str, username: str, account_id: str, status: str
 ) -> str:
     """
     Generate HTML template for already linked OAuth account.
@@ -385,35 +369,17 @@ def get_oauth_already_linked_template(
             font-weight: 500;
             color: #A0A0A0;
             line-height: 1.6;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }}
 
-        .return-button {{
-            background: linear-gradient(135deg, #FF4BA8, #A24EF7);
-            color: #000000;
-            border: none;
-            border-radius: 3rem;
-            padding: 1.25rem 3rem;
-            font-size: 1.125rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-transform: uppercase;
+        .closing-message {{
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #666666;
+            margin-top: 2rem;
             letter-spacing: 0.05em;
-            box-shadow: 0 8px 24px rgba(255, 75, 168, 0.4);
-        }}
-
-        .return-button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(255, 75, 168, 0.5);
-        }}
-
-        .return-button:active {{
-            transform: translateY(0);
         }}
 
         @media (max-width: 640px) {{
@@ -429,12 +395,11 @@ def get_oauth_already_linked_template(
 
             .subtitle {{
                 font-size: 0.875rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }}
 
-            .return-button {{
-                padding: 1rem 2.5rem;
-                font-size: 1rem;
+            .closing-message {{
+                font-size: 0.75rem;
             }}
         }}
     </style>
@@ -442,29 +407,39 @@ def get_oauth_already_linked_template(
 <body>
     <div class="container">
         <img src="/deid_logo_noname.png" alt="DEiD Logo" class="logo">
-        <h1>Account Already Link</h1>
+        <h1>Account Already Linked</h1>
         <p class="subtitle">
-            This social account is already linked to your or another DEiD profile.
+            This social account is already linked to your DEiD profile.
         </p>
-        <a href="javascript:window.close()" class="return-button">
-            Return to DEiD
-        </a>
+        <p class="closing-message">
+            This window will close automatically in <span id="countdown">5</span> seconds...
+        </p>
     </div>
 
     <script>
-        // Auto-close after 8 seconds
+        // Countdown timer
+        let seconds = 5;
+        const countdownElement = document.getElementById('countdown');
+
+        const interval = setInterval(() => {{
+            seconds--;
+            countdownElement.textContent = seconds;
+            if (seconds <= 0) {{
+                clearInterval(interval);
+            }}
+        }}, 1000);
+
+        // Auto-close after 5 seconds
         setTimeout(() => {{
             window.close();
-        }}, 8000);
+        }}, 5000);
     </script>
 </body>
 </html>
 """
 
 
-def get_oauth_generic_error_template(
-    error_message: str
-) -> str:
+def get_oauth_generic_error_template(error_message: str) -> str:
     """
     Generate HTML template for generic OAuth verification error.
     """

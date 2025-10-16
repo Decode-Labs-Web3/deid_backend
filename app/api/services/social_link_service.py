@@ -827,7 +827,7 @@ class SocialLinkService:
 
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.google_oauth_base}/token",
+                    "https://oauth2.googleapis.com/token",
                     data=data,
                     headers={
                         "Content-Type": "application/x-www-form-urlencoded",

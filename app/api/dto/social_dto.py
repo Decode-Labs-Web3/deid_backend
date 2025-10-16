@@ -18,6 +18,7 @@ class SocialPlatform(str, Enum):
     GITHUB = "github"
     TELEGRAM = "telegram"
     GOOGLE = "google"
+    FACEBOOK = "facebook"
 
 
 class VerificationStatus(str, Enum):
