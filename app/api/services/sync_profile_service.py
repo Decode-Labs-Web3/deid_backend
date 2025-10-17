@@ -3,17 +3,17 @@ Sync Profile Service.
 Builds calldata for DEiDProfile.createProfile via proxy after uploading metadata to IPFS.
 """
 
-from typing import Dict, Any, Optional
 import json
-import httpx
+from typing import Any, Dict, Optional
 
+import httpx
 from eth_abi import encode as abi_encode
 from eth_utils import to_checksum_address
-from app.infrastructure.blockchain.selectors import selector_for
 
+from app.api.services.decode_service import DecodeService
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.api.services.decode_service import DecodeService
+from app.infrastructure.blockchain.selectors import selector_for
 from app.infrastructure.blockchain.signature_utils import sign_message_with_private_key
 
 logger = get_logger(__name__)
@@ -45,9 +45,7 @@ class SyncProfileService:
             return {"uri": f"ipfs://{ipfs_hash}", "hash": ipfs_hash}
 
     async def build_create_profile_calldata(
-        self,
-        session_user_id: str,
-        user_profile: Dict[str, Any]
+        self, session_user_id: str, user_profile: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Build calldata for createProfile(string username, string metadataURI, bytes validatorSignature).
@@ -64,7 +62,7 @@ class SyncProfileService:
         display_name: Optional[str] = data.get("display_name")
         bio: Optional[str] = data.get("bio")
         avatar_ipfs_hash: Optional[str] = data.get("avatar_ipfs_hash")
-        primary_wallet = (data.get("primary_wallet") or {})
+        primary_wallet = data.get("primary_wallet") or {}
         wallet_address: str = primary_wallet.get("address")
         wallets = data.get("wallets") or []
 
@@ -100,9 +98,11 @@ class SyncProfileService:
         if settings.EVM_PRIVATE_KEY:
             try:
                 print(f"Signing IPFS hash: {ipfs_hash}")
-                validator_signature, validator_address, validator_message_hash = sign_message_with_private_key(
-                    metadata_uri,
-                    settings.EVM_PRIVATE_KEY,
+                validator_signature, validator_address, validator_message_hash = (
+                    sign_message_with_private_key(
+                        metadata_uri,
+                        settings.EVM_PRIVATE_KEY,
+                    )
                 )
                 print(f"Signature created successfully: {validator_signature[:20]}...")
                 print(f"Signer address: {validator_address}")
@@ -114,24 +114,31 @@ class SyncProfileService:
 
         # Prepare calldata for createProfile(string,string,bytes)
         checksum_wallet = to_checksum_address(wallet_address)
-        method_selector = bytes.fromhex(selector_for("createProfile(string,string,bytes)")[2:])
-        signature_bytes = bytes.fromhex(validator_signature[2:]) if validator_signature else b""
-        args_encoded = abi_encode([
-            "string",
-            "string",
-            "bytes",
-        ], [
-            username,
-            metadata_uri,
-            signature_bytes,
-        ])
+        method_selector = bytes.fromhex(
+            selector_for("createProfile(string,string,bytes)")[2:]
+        )
+        signature_bytes = (
+            bytes.fromhex(validator_signature[2:]) if validator_signature else b""
+        )
+        args_encoded = abi_encode(
+            [
+                "string",
+                "string",
+                "bytes",
+            ],
+            [
+                username,
+                metadata_uri,
+                signature_bytes,
+            ],
+        )
         calldata = "0x" + (method_selector + args_encoded).hex()
 
         return {
             "method": "createProfile(string,string,bytes)",
             "params": {
                 "wallet": checksum_wallet,
-                "username": username,
+                "username": username + ".deid",
                 "metadataURI": metadata_uri,
             },
             "calldata": calldata,
@@ -165,9 +172,7 @@ class SyncProfileService:
         return await self.build_create_profile_calldata(user_id, profile_dict)
 
     async def build_update_profile_calldata(
-        self,
-        session_user_id: str,
-        user_profile: Dict[str, Any]
+        self, session_user_id: str, user_profile: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Build calldata for updateProfile(string metadataURI, bytes validatorSignature).
@@ -184,7 +189,7 @@ class SyncProfileService:
         display_name: Optional[str] = data.get("display_name")
         bio: Optional[str] = data.get("bio")
         avatar_ipfs_hash: Optional[str] = data.get("avatar_ipfs_hash")
-        primary_wallet = (data.get("primary_wallet") or {})
+        primary_wallet = data.get("primary_wallet") or {}
         wallet_address: str = primary_wallet.get("address")
         wallets = data.get("wallets") or []
 
@@ -217,23 +222,30 @@ class SyncProfileService:
         validator_message_hash = None
         if settings.EVM_PRIVATE_KEY:
             try:
-                validator_signature, validator_address, validator_message_hash = sign_message_with_private_key(
-                    metadata_uri,
-                    settings.EVM_PRIVATE_KEY,
+                validator_signature, validator_address, validator_message_hash = (
+                    sign_message_with_private_key(
+                        metadata_uri,
+                        settings.EVM_PRIVATE_KEY,
+                    )
                 )
             except Exception as e:
                 logger.error(f"Validator signing failed: {e}")
 
         # Prepare calldata for updateProfile(string,bytes)
         method_selector = bytes.fromhex(selector_for("updateProfile(string,bytes)")[2:])
-        signature_bytes = bytes.fromhex(validator_signature[2:]) if validator_signature else b""
-        args_encoded = abi_encode([
-            "string",
-            "bytes",
-        ], [
-            metadata_uri,
-            signature_bytes,
-        ])
+        signature_bytes = (
+            bytes.fromhex(validator_signature[2:]) if validator_signature else b""
+        )
+        args_encoded = abi_encode(
+            [
+                "string",
+                "bytes",
+            ],
+            [
+                metadata_uri,
+                signature_bytes,
+            ],
+        )
         calldata = "0x" + (method_selector + args_encoded).hex()
 
         return {
