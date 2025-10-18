@@ -50,18 +50,25 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Monad Testnet Support
-    EVM_RPC_URL: str = "https://testnet-rpc.monad.xyz"
-    EVM_CHAIN_ID: int = 41434  # Monad testnet chain ID
+    # Blockchain Configuration
+    # Supports both Monad and Ethereum Sepolia
+    TESTNET_RPC_URL: Optional[str] = (
+        None  # Sepolia: https://eth-sepolia.public.blastapi.io
+    )
+    EVM_RPC_URL: str = "https://testnet-rpc.monad.xyz"  # Default: Monad testnet
+    EVM_CHAIN_ID: int = 41434  # Monad: 41434, Sepolia: 11155111
     EVM_CONTRACT_ADDRESS: Optional[str] = None
     EVM_CONTRACT_ABI_PATH: str = "contracts/DeID.json"
 
     # Private key for signing (from .env)
     EVM_PRIVATE_KEY: Optional[str] = None
 
+    @property
+    def ACTIVE_RPC_URL(self) -> str:
+        """Get active RPC URL (TESTNET_RPC_URL takes priority over EVM_RPC_URL)."""
+        return self.TESTNET_RPC_URL or self.EVM_RPC_URL
+
     # IPFS Configuration
-    IPFS_URL: str = "http://localhost:5001"
-    IPFS_GATEWAY_URL_POST: str = "https://ipfs.de-id.xyz/add"
     # Pinata credentials (preferred names)
     IPFS_PINATA_API_KEY: Optional[str] = None
     IPFS_PINATA_SECRET: Optional[str] = None
@@ -130,6 +137,13 @@ class Settings(BaseSettings):
     X_CLIENT_ID: Optional[str] = None
     X_CLIENT_SECRET: Optional[str] = None
     X_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/x/callback"
+
+    # IPFS Configuration
+    IPFS_GATEWAY_URL_POST: str = "http://35.247.142.76:5001/api/v0/add"
+    IPFS_GATEWAY_URL_GET: str = "http://35.247.142.76:8080/ipfs"
+
+    # Smart Contract Configuration
+    PROXY_ADDRESS: Optional[str] = None
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

@@ -4,11 +4,12 @@ Main entry point for the DEID (Decentralized Identity) backend service.
 Handles decentralized identity management, cross-chain wallet linking, and SSO integration.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -63,23 +64,28 @@ def create_app() -> FastAPI:
         )
 
     # Decode Backend Integration
-    from app.api.routers import decode_router
-    from app.api.routers import sync_profile_router
-    from app.api.routers import social_link_router
+    from app.api.routers import (
+        decode_router,
+        social_link_router,
+        sync_profile_router,
+        task_router,
+    )
+
     app.include_router(
         decode_router.router,
         prefix="/api/v1/decode",
-        tags=["Decode Backend Integration"]
+        tags=["Decode Backend Integration"],
     )
     app.include_router(
-        sync_profile_router.router,
-        prefix="/api/v1/sync",
-        tags=["Sync Profile"]
+        sync_profile_router.router, prefix="/api/v1/sync", tags=["Sync Profile"]
     )
     app.include_router(
         social_link_router.router,
         prefix="/api/v1/social",
-        tags=["Social Link Verification"]
+        tags=["Social Link Verification"],
+    )
+    app.include_router(
+        task_router.router, prefix="/api/v1/task", tags=["Task & Badge Management"]
     )
 
     # Mount static files
@@ -99,8 +105,8 @@ def create_app() -> FastAPI:
                 "Social Account Verification",
                 "Decode Backend Integration",
                 "Trust & Verification System",
-                "Gamification & Achievements"
-            ]
+                "Gamification & Achievements",
+            ],
         }
 
     @app.get("/health")
@@ -112,9 +118,9 @@ def create_app() -> FastAPI:
             "monad_testnet_chain_id": settings.EVM_CHAIN_ID,
             "features_enabled": {
                 "decode_backend": bool(settings.DECODE_PORTAL_CLIENT_ID),
-                "ipfs": bool(settings.IPFS_URL),
-                "monad_testnet": True
-            }
+                "ipfs": bool(settings.IPFS_GATEWAY_URL_POST),
+                "monad_testnet": True,
+            },
         }
 
     return app
@@ -132,5 +138,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=settings.ENVIRONMENT == "development",
-        log_level="info"
+        log_level="info",
     )
