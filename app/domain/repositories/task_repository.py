@@ -28,8 +28,8 @@ class TaskRepository:
     async def connect(self):
         """Connect to MongoDB."""
         if not self.client:
-            self.client = AsyncIOMotorClient(settings.MONGODB_URL)
-            self.db = self.client[settings.MONGODB_DB_NAME]
+            self.client = AsyncIOMotorClient(settings.MONGO_URI)
+            self.db = self.client[settings.MONGO_DB_NAME]
             self.collection = self.db["tasks"]
             logger.info("Connected to MongoDB tasks collection")
 

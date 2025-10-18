@@ -53,4 +53,4 @@ class TaskModel(BaseModel):
     blockchain_network: BlockchainNetwork = Field(..., description="Blockchain network")
     token_contract_address: str = Field(..., description="Token contract address")
     minimum_balance: int = Field(..., description="Minimum balance")
-    badge_details: BadgeDetail = Field(..., description="Badge details")
+    badge_details: dict = Field(..., description="Badge details")

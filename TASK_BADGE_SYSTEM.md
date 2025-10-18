@@ -4,6 +4,12 @@
 
 The Task & Badge Management System allows administrators to create on-chain verification tasks that users can complete to earn NFT badges. The system integrates MongoDB for data storage, IPFS for metadata hosting, and Ethereum smart contracts for on-chain badge minting.
 
+### Access Control
+
+- **Task Creation**: Admin role required (enforced via `get_admin_user()` dependency)
+- **Task Viewing**: Public access (no authentication required)
+- **Task Types Supported**: ERC20 balance verification, ERC721 balance verification
+
 ---
 
 ## Table of Contents
@@ -82,7 +88,7 @@ The Task & Badge Management System allows administrators to create on-chain veri
      │    }
      ▼
 ┌────────────────┐
-│  Task Router   │ Authenticates user via get_current_user()
+│  Task Router   │ Authenticates admin via get_admin_user()
 └────┬───────────┘
      │
      │ 2. Calls task_service.create_task()
@@ -194,7 +200,7 @@ The Task & Badge Management System allows administrators to create on-chain veri
 
 ### 1. Create Task (POST /api/v1/task/create)
 
-**Authentication**: Required (JWT Bearer Token)
+**Authentication**: Required (Admin Role Only)
 
 **Request Body**:
 
@@ -520,7 +526,7 @@ FastAPI endpoints:
 
 **Authentication**:
 
-- `/create` requires JWT token (get_current_user dependency)
+- `/create` requires admin role (get_admin_user dependency)
 - List and get endpoints are public
 
 **Purpose**: HTTP API layer
@@ -580,16 +586,16 @@ class Settings(BaseSettings):
 
 ### Frontend Integration
 
-#### 1. Create Task
+#### 1. Create Task (Admin Only)
 
 ```typescript
-// Create task with authentication
+// Create task with admin authentication
 const createTask = async () => {
   const response = await fetch("http://localhost:8000/api/v1/task/create", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${jwtToken}`,
+      Authorization: `Bearer ${adminJwtToken}`,
     },
     body: JSON.stringify({
       task_title: "Hold 100 USDC",
@@ -612,9 +618,16 @@ const createTask = async () => {
 
   const result = await response.json();
 
+  if (response.status === 403) {
+    console.error("Access denied: Admin role required");
+    return;
+  }
+
   if (result.success) {
     console.log("Task created:", result.data.id);
     console.log("TX Hash:", result.data.tx_hash);
+  } else {
+    console.error("Failed to create task:", result.message);
   }
 };
 ```
@@ -750,8 +763,9 @@ except Exception as contract_error:
 ### Router Layer Errors
 
 ```python
-# Authentication failure (handled by get_current_user)
-# Returns 401 Unauthorized
+# Authentication failure (handled by get_admin_user)
+# Returns 401 Unauthorized if not authenticated
+# Returns 403 Forbidden if user is not admin
 
 # Internal errors
 try:
@@ -771,10 +785,10 @@ except Exception as e:
 ### Manual Testing with cURL
 
 ```bash
-# 1. Create task (requires auth token)
+# 1. Create task (requires admin auth token)
 curl -X POST http://localhost:8000/api/v1/task/create \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Authorization: Bearer YOUR_ADMIN_JWT_TOKEN" \
   -d '{
     "task_title": "Hold 100 USDC",
     "task_description": "Hold at least 100 USDC",
@@ -797,6 +811,13 @@ curl http://localhost:8000/api/v1/task/list?page=1&page_size=10
 
 # 3. Get task by ID
 curl http://localhost:8000/api/v1/task/507f1f77bcf86cd799439011
+
+# 4. Test non-admin access (should return 403 Forbidden)
+curl -X POST http://localhost:8000/api/v1/task/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_NON_ADMIN_JWT_TOKEN" \
+  -d '{...}'
+# Response: {"detail": {"message": "Access denied. Required roles: admin. Your role: user", "error": "INSUFFICIENT_PERMISSIONS"}}
 ```
 
 ### Swagger UI
@@ -831,10 +852,16 @@ http://localhost:8000/docs
    - Never commit to version control
    - Use separate key for development/production
 
-2. **Authentication**
+2. **Authentication & Authorization**
 
-   - Task creation requires valid JWT token
-   - Implement rate limiting for API endpoints
+   - **Role-Based Access Control (RBAC)**: Task creation requires admin role only
+   - **Admin Users**: Can create, view, and manage tasks
+   - **Regular Users**: Can only view task list and task details (read-only)
+   - **Error Responses**:
+     - `401 Unauthorized`: Missing or invalid authentication token
+     - `403 Forbidden`: Authenticated user without admin role
+   - **Implementation**: Uses `get_admin_user()` dependency in FastAPI
+   - Implement rate limiting for API endpoints to prevent abuse
 
 3. **Input Validation**
 

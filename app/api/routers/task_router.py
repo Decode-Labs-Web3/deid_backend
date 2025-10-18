@@ -7,7 +7,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps.decode_guard import AuthenticatedUser, get_current_user
+from app.api.deps.decode_guard import (
+    AuthenticatedUser,
+    get_admin_user,
+    get_current_user,
+)
 from app.api.dto.task_dto import (
     OriginTaskCreateRequestDTO,
     TaskCreateResponseDTO,
@@ -26,10 +30,10 @@ router = APIRouter()
 @router.post("/create", response_model=TaskCreateResponseDTO)
 async def create_task(
     request: OriginTaskCreateRequestDTO,
-    current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_admin_user),
 ) -> TaskCreateResponseDTO:
     """
-    Create a new task/badge.
+    Create a new task/badge. (Admin Only)
 
     This endpoint:
     1. Uploads badge metadata to IPFS
@@ -37,14 +41,16 @@ async def create_task(
     3. Creates badge on smart contract
     4. Returns the created task data
 
+    **Access**: Admin role required
+
     Args:
         request: Task creation request data
-        current_user: Authenticated user
+        current_user: Authenticated admin user
 
     Returns:
         TaskCreateResponseDTO with creation result
     """
-    logger.info(f"Creating task: {request.task_title} by user {current_user.user_id}")
+    logger.info(f"Creating task: {request.task_title} by admin {current_user.user_id}")
 
     try:
         success, message, task_data = await task_service.create_task(request)

@@ -80,7 +80,7 @@ class TaskService:
                 blockchain_network=task_request.blockchain_network,
                 token_contract_address=task_request.token_contract_address,
                 minimum_balance=task_request.minimum_balance,
-                badge_details=task_request.badge_details,
+                badge_details=task_request.badge_details.model_dump(),
             )
 
             created_task = await task_repository.create_task(task_model)
