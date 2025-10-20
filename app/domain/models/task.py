@@ -54,3 +54,18 @@ class TaskModel(BaseModel):
     token_contract_address: str = Field(..., description="Token contract address")
     minimum_balance: int = Field(..., description="Minimum balance")
     badge_details: dict = Field(..., description="Badge details")
+
+
+class TaskValidationModel(BaseModel):
+    """Task validation model for storing successful validation attempts."""
+
+    user_id: str = Field(..., description="User ID (from Decode)")
+    task_id: str = Field(..., description="Task ID (MongoDB ObjectId)")
+    wallet_address: str = Field(..., description="User's primary wallet address")
+    actual_balance: int = Field(..., description="Actual balance at validation time")
+    signature: str = Field(..., description="Validation signature")
+    verification_hash: str = Field(..., description="Verification hash")
+    validation_timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Validation timestamp",
+    )

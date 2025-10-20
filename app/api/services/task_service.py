@@ -6,12 +6,25 @@ Contains business logic for task management and smart contract integration.
 import json
 from typing import Dict, List, Optional, Tuple
 
-from app.api.dto.task_dto import BadgeDetail, OriginTaskCreateRequestDTO
+from app.api.dto.task_dto import (
+    BadgeDetail,
+    OriginTaskCreateRequestDTO,
+    TaskValidationDataDTO,
+    TaskValidationResponseDTO,
+)
 from app.core.config import settings
+from app.core.decode_external_service import get_decode_profile_external
 from app.core.logging import get_logger
-from app.domain.models.task import TaskModel
+from app.domain.models.task import (
+    BlockchainNetwork,
+    TaskModel,
+    TaskValidationModel,
+    ValidationType,
+)
 from app.domain.repositories.task_repository import task_repository
+from app.infrastructure.blockchain.balance_validator import balance_validator
 from app.infrastructure.blockchain.contract_client import ContractClient
+from app.infrastructure.blockchain.signature_utils import sign_message_with_private_key
 from app.infrastructure.ipfs.ipfs_service import ipfs_service
 
 logger = get_logger(__name__)
@@ -248,6 +261,204 @@ class TaskService:
         }
 
         return task_data
+
+    async def validate_task_for_user(
+        self, task_id: str, user_id: str
+    ) -> TaskValidationResponseDTO:
+        """
+        Validate if user meets task requirements and generate signature for badge minting.
+
+        Steps:
+        1. Fetch user profile from Decode
+        2. Extract primary wallet address
+        3. Get task details
+        4. Check if user already validated this task
+        5. Validate balance on blockchain
+        6. Sign task_id if validation succeeds
+        7. Store successful validation
+
+        Args:
+            task_id: Task ID (MongoDB ObjectId)
+            user_id: User ID from Decode
+
+        Returns:
+            TaskValidationResponseDTO with validation result and signature
+        """
+        try:
+            # Step 1: Fetch user profile from Decode
+            logger.info(f"Validating task {task_id} for user {user_id}")
+            user_profile = await get_decode_profile_external(user_id)
+
+            if not user_profile or not user_profile.get("success"):
+                return TaskValidationResponseDTO(
+                    success=False,
+                    message="Failed to fetch user profile from Decode",
+                    data=None,
+                )
+
+            # Step 2: Extract primary wallet address
+            user_data = user_profile.get("data")
+            if not user_data:
+                return TaskValidationResponseDTO(
+                    success=False, message="User data not found", data=None
+                )
+
+            primary_wallet = user_data.get("primary_wallet")
+            if not primary_wallet or not primary_wallet.get("address"):
+                return TaskValidationResponseDTO(
+                    success=False,
+                    message="User does not have a primary wallet",
+                    data=None,
+                )
+
+            wallet_address = primary_wallet["address"]
+            logger.info(f"User {user_id} primary wallet: {wallet_address}")
+
+            # Step 3: Get task details
+            task_data = await task_repository.get_task_by_id(task_id)
+            if not task_data:
+                return TaskValidationResponseDTO(
+                    success=False, message="Task not found", data=None
+                )
+
+            # Step 4: Check if user already validated this task
+            existing_validation = await task_repository.get_user_task_validation(
+                user_id, task_id
+            )
+
+            if existing_validation:
+                logger.info(
+                    f"User {user_id} already validated task {task_id}, returning existing validation"
+                )
+                return TaskValidationResponseDTO(
+                    success=True,
+                    message="Task already validated for this user",
+                    data=TaskValidationDataDTO(
+                        task_id=task_id,
+                        user_wallet=wallet_address,
+                        actual_balance=existing_validation.get("actual_balance", 0),
+                        required_balance=task_data.get("minimum_balance", 0),
+                        signature=existing_validation.get("signature", ""),
+                        verification_hash=existing_validation.get(
+                            "verification_hash", ""
+                        ),
+                        task_details=self._serialize_task(task_data),
+                    ),
+                )
+
+            # Step 5: Get RPC URL based on blockchain network
+            blockchain_network = task_data.get("blockchain_network")
+            rpc_url = self._get_rpc_url_for_network(blockchain_network)
+
+            if not rpc_url:
+                return TaskValidationResponseDTO(
+                    success=False,
+                    message=f"Unsupported blockchain network: {blockchain_network}",
+                    data=None,
+                )
+
+            # Step 6: Validate balance based on validation type
+            validation_type = task_data.get("validation_type")
+            token_contract_address = task_data.get("token_contract_address")
+            minimum_balance = task_data.get("minimum_balance", 0)
+
+            is_valid = False
+            actual_balance = 0
+
+            if validation_type == ValidationType.ERC20_BALANCE_CHECK.value:
+                is_valid, actual_balance = await balance_validator.check_erc20_balance(
+                    wallet_address=wallet_address,
+                    token_contract_address=token_contract_address,
+                    minimum_balance=minimum_balance,
+                    rpc_url=rpc_url,
+                )
+            elif validation_type == ValidationType.ERC721_BALANCE_CHECK.value:
+                is_valid, actual_balance = await balance_validator.check_erc721_balance(
+                    wallet_address=wallet_address,
+                    nft_contract_address=token_contract_address,
+                    minimum_balance=minimum_balance,
+                    rpc_url=rpc_url,
+                )
+            else:
+                return TaskValidationResponseDTO(
+                    success=False,
+                    message=f"Unsupported validation type: {validation_type}",
+                    data=None,
+                )
+
+            if not is_valid:
+                return TaskValidationResponseDTO(
+                    success=False,
+                    message=f"Insufficient balance. Required: {minimum_balance}, Actual: {actual_balance}",
+                    data=None,
+                )
+
+            # Step 7: Sign task_id using EVM_PRIVATE_KEY
+            if not settings.EVM_PRIVATE_KEY:
+                return TaskValidationResponseDTO(
+                    success=False, message="EVM private key not configured", data=None
+                )
+
+            signature, signer_address, verification_hash = (
+                sign_message_with_private_key(
+                    message=task_id, private_key=settings.EVM_PRIVATE_KEY
+                )
+            )
+
+            logger.info(
+                f"Generated signature for task {task_id}: {signature[:20]}... (signer: {signer_address})"
+            )
+
+            # Step 8: Store successful validation
+            validation_model = TaskValidationModel(
+                user_id=user_id,
+                task_id=task_id,
+                wallet_address=wallet_address,
+                actual_balance=actual_balance,
+                signature=signature,
+                verification_hash=verification_hash,
+            )
+
+            await task_repository.create_task_validation(validation_model)
+
+            # Step 9: Return validation response
+            return TaskValidationResponseDTO(
+                success=True,
+                message="Task validated successfully",
+                data=TaskValidationDataDTO(
+                    task_id=task_id,
+                    user_wallet=wallet_address,
+                    actual_balance=actual_balance,
+                    required_balance=minimum_balance,
+                    signature=signature,
+                    verification_hash=verification_hash,
+                    task_details=self._serialize_task(task_data),
+                ),
+            )
+
+        except Exception as e:
+            logger.error(f"Error validating task: {e}", exc_info=True)
+            return TaskValidationResponseDTO(
+                success=False, message=f"Internal server error: {str(e)}", data=None
+            )
+
+    def _get_rpc_url_for_network(self, blockchain_network: str) -> Optional[str]:
+        """
+        Get RPC URL for blockchain network.
+
+        Args:
+            blockchain_network: Blockchain network name
+
+        Returns:
+            RPC URL or None if unsupported
+        """
+        network_mapping = {
+            BlockchainNetwork.ETHEREUM.value: settings.ETHEREUM_RPC_URL,
+            BlockchainNetwork.BINANCE_SMART_CHAIN.value: settings.BSC_RPC_URL,
+            BlockchainNetwork.BASE.value: settings.BASE_RPC_URL,
+        }
+
+        return network_mapping.get(blockchain_network)
 
 
 # Global service instance

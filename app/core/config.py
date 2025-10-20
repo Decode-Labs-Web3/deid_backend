@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # Private key for signing (from .env)
     EVM_PRIVATE_KEY: Optional[str] = None
 
+    # Blockchain Validation RPC URLs
+    ETHEREUM_RPC_URL: str = "https://eth-mainnet.public.blastapi.io"
+    BSC_RPC_URL: str = "https://bsc-mainnet.public.blastapi.io"
+    BASE_RPC_URL: str = "https://base-mainnet.public.blastapi.io"
+
     @property
     def ACTIVE_RPC_URL(self) -> str:
         """Get active RPC URL (TESTNET_RPC_URL takes priority over EVM_RPC_URL)."""
@@ -144,6 +149,11 @@ class Settings(BaseSettings):
 
     # Smart Contract Configuration
     PROXY_ADDRESS: Optional[str] = None
+
+    # BLOCKCHAIN RPC
+    ETHEREUM_RPC_URL: str = "https://eth-mainnet.public.blastapi.io"
+    BSC_RPC_URL: str = "https://bsc-mainnet.public.blastapi.io"
+    BASE_RPC_URL: str = "https://base-mainnet.public.blastapi.io"
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

@@ -14,9 +14,11 @@ from app.api.deps.decode_guard import (
 )
 from app.api.dto.task_dto import (
     OriginTaskCreateRequestDTO,
+    OriginTaskValidateRequestDTO,
     TaskCreateResponseDTO,
     TaskListResponseDTO,
     TaskResponseDTO,
+    TaskValidationResponseDTO,
 )
 from app.api.services.task_service import task_service
 from app.core.logging import get_logger
@@ -169,6 +171,46 @@ async def get_task_by_id(task_id: str) -> TaskCreateResponseDTO:
         )
 
 
+@router.post("/{task_id}/validate", response_model=TaskValidationResponseDTO)
+async def validate_task(
+    task_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> TaskValidationResponseDTO:
+    """
+    Validate if user meets task requirements and get signature for badge minting.
+
+    This endpoint:
+    1. Fetches user profile from Decode using session
+    2. Gets user's primary wallet address
+    3. Checks if wallet meets task requirements (minimum token/NFT balance)
+    4. Signs task_id with backend private key if validation succeeds
+    5. Returns signature for frontend to use in badge minting
+
+    **Access**: Authenticated users only (requires deid_session_id cookie)
+
+    Args:
+        task_id: Task ID to validate
+        current_user: Authenticated user from session
+
+    Returns:
+        TaskValidationResponseDTO with validation result and signature
+    """
+    logger.info(f"Validating task {task_id} for user {current_user.user_id}")
+
+    try:
+        validation_result = await task_service.validate_task_for_user(
+            task_id=task_id, user_id=current_user.user_id
+        )
+
+        return validation_result
+
+    except Exception as e:
+        logger.error(f"Error validating task: {e}", exc_info=True)
+        return TaskValidationResponseDTO(
+            success=False, message=f"Internal server error: {str(e)}", data=None
+        )
+
+
 @router.get("/health", include_in_schema=False)
 async def health_check() -> dict:
     """
@@ -184,6 +226,7 @@ async def health_check() -> dict:
             "create_task_with_badge",
             "list_tasks_paginated",
             "get_task_by_id",
+            "validate_task_for_user",
         ],
         "supported_validation_types": [
             "erc20_balance_check",
