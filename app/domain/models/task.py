@@ -62,7 +62,9 @@ class TaskValidationModel(BaseModel):
     user_id: str = Field(..., description="User ID (from Decode)")
     task_id: str = Field(..., description="Task ID (MongoDB ObjectId)")
     wallet_address: str = Field(..., description="User's primary wallet address")
-    actual_balance: int = Field(..., description="Actual balance at validation time")
+    actual_balance: str = Field(
+        ..., description="Actual balance at validation time (stored as string)"
+    )
     signature: str = Field(..., description="Validation signature")
     verification_hash: str = Field(..., description="Verification hash")
     validation_timestamp: datetime = Field(

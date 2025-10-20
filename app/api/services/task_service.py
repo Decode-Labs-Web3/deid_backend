@@ -336,8 +336,10 @@ class TaskService:
                     data=TaskValidationDataDTO(
                         task_id=task_id,
                         user_wallet=wallet_address,
-                        actual_balance=existing_validation.get("actual_balance", 0),
-                        required_balance=task_data.get("minimum_balance", 0),
+                        actual_balance=str(
+                            existing_validation.get("actual_balance", "0")
+                        ),
+                        required_balance=str(task_data.get("minimum_balance", 0)),
                         signature=existing_validation.get("signature", ""),
                         verification_hash=existing_validation.get(
                             "verification_hash", ""
@@ -414,7 +416,7 @@ class TaskService:
                 user_id=user_id,
                 task_id=task_id,
                 wallet_address=wallet_address,
-                actual_balance=actual_balance,
+                actual_balance=str(actual_balance),
                 signature=signature,
                 verification_hash=verification_hash,
             )
@@ -428,8 +430,8 @@ class TaskService:
                 data=TaskValidationDataDTO(
                     task_id=task_id,
                     user_wallet=wallet_address,
-                    actual_balance=actual_balance,
-                    required_balance=minimum_balance,
+                    actual_balance=str(actual_balance),
+                    required_balance=str(minimum_balance),
                     signature=signature,
                     verification_hash=verification_hash,
                     task_details=self._serialize_task(task_data),
