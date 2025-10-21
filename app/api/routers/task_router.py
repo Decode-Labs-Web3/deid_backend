@@ -3,7 +3,7 @@ Task Router for DEID Backend.
 Handles task/badge management endpoints.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -82,29 +82,88 @@ async def create_task(
 async def get_tasks(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
-    validation_type: Optional[str] = Query(
+    type: Optional[List[str]] = Query(
         None,
-        description="Filter by validation type (erc20_balance_check or erc721_balance_check)",
+        description="Filter by task types (can select multiple): 'token' (ERC20), 'nft' (ERC721)",
+    ),
+    network: Optional[List[str]] = Query(
+        None,
+        description="Filter by blockchain networks (can select multiple): 'ethereum', 'bsc', 'base'",
     ),
 ) -> TaskListResponseDTO:
     """
-    Get paginated list of tasks.
+    Get paginated list of tasks with optional filters.
 
     Args:
         page: Page number (1-indexed, default: 1)
         page_size: Number of items per page (default: 10, max: 100)
-        validation_type: Optional filter by validation type
+        type: Optional filter by task types (can pass multiple: type=token&type=nft)
+        network: Optional filter by blockchain networks (can pass multiple: network=ethereum&network=bsc)
 
     Returns:
         TaskListResponseDTO with paginated task list
+
+    Examples:
+        - All tasks: /api/v1/task/list
+        - Token tasks only: /api/v1/task/list?type=token
+        - Both types: /api/v1/task/list?type=token&type=nft
+        - Ethereum and BSC: /api/v1/task/list?network=ethereum&network=bsc
+        - Token tasks on Ethereum and Base: /api/v1/task/list?type=token&network=ethereum&network=base
     """
+    # Map user-friendly type filters to validation_types
+    validation_types = None
+    if type:
+        type_mapping = {
+            "token": "erc20_balance_check",
+            "nft": "erc721_balance_check",
+        }
+        validation_types = []
+        for t in type:
+            mapped_type = type_mapping.get(t.lower())
+            if not mapped_type:
+                return TaskListResponseDTO(
+                    success=False,
+                    message=f"Invalid type filter '{t}'. Allowed values: 'token', 'nft'",
+                    data=[],
+                    pagination={
+                        "page": page,
+                        "page_size": page_size,
+                        "total_count": 0,
+                        "total_pages": 0,
+                    },
+                )
+            validation_types.append(mapped_type)
+
+    # Validate network filters
+    blockchain_networks = None
+    if network:
+        allowed_networks = ["ethereum", "bsc", "base"]
+        blockchain_networks = []
+        for net in network:
+            if net.lower() not in allowed_networks:
+                return TaskListResponseDTO(
+                    success=False,
+                    message=f"Invalid network filter '{net}'. Allowed values: {', '.join(allowed_networks)}",
+                    data=[],
+                    pagination={
+                        "page": page,
+                        "page_size": page_size,
+                        "total_count": 0,
+                        "total_pages": 0,
+                    },
+                )
+            blockchain_networks.append(net.lower())
+
     logger.info(
-        f"Getting tasks: page={page}, page_size={page_size}, validation_type={validation_type}"
+        f"Getting tasks: page={page}, page_size={page_size}, types={type}, networks={network}"
     )
 
     try:
         tasks, total_count, total_pages = await task_service.get_tasks_paginated(
-            page=page, page_size=page_size, validation_type=validation_type
+            page=page,
+            page_size=page_size,
+            validation_types=validation_types,
+            blockchain_networks=blockchain_networks,
         )
 
         # Convert tasks to response DTOs

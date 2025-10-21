@@ -154,7 +154,11 @@ class TaskService:
             return False, f"Failed to create task: {str(e)}", None
 
     async def get_tasks_paginated(
-        self, page: int = 1, page_size: int = 10, validation_type: Optional[str] = None
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        validation_types: Optional[List[str]] = None,
+        blockchain_networks: Optional[List[str]] = None,
     ) -> Tuple[List[Dict], int, int]:
         """
         Get paginated list of tasks.
@@ -162,7 +166,8 @@ class TaskService:
         Args:
             page: Page number (1-indexed)
             page_size: Number of items per page
-            validation_type: Optional filter by validation type
+            validation_types: Optional filter by validation types (list of erc20_balance_check, erc721_balance_check)
+            blockchain_networks: Optional filter by blockchain networks (list of ethereum, bsc, base)
 
         Returns:
             Tuple of (tasks list, total count, total pages)
@@ -173,7 +178,10 @@ class TaskService:
 
             # Get tasks and total count
             tasks, total_count = await task_repository.get_tasks_paginated(
-                skip=skip, limit=page_size, validation_type=validation_type
+                skip=skip,
+                limit=page_size,
+                validation_types=validation_types,
+                blockchain_networks=blockchain_networks,
             )
 
             # Calculate total pages

@@ -86,7 +86,11 @@ class TaskRepository:
             return None
 
     async def get_tasks_paginated(
-        self, skip: int = 0, limit: int = 10, validation_type: Optional[str] = None
+        self,
+        skip: int = 0,
+        limit: int = 10,
+        validation_types: Optional[List[str]] = None,
+        blockchain_networks: Optional[List[str]] = None,
     ) -> tuple[List[dict], int]:
         """
         Get paginated list of tasks.
@@ -94,7 +98,8 @@ class TaskRepository:
         Args:
             skip: Number of documents to skip
             limit: Maximum number of documents to return
-            validation_type: Optional filter by validation type
+            validation_types: Optional filter by validation types (list of erc20_balance_check, erc721_balance_check)
+            blockchain_networks: Optional filter by blockchain networks (list of ethereum, bsc, base)
 
         Returns:
             Tuple of (list of tasks, total count)
@@ -103,8 +108,10 @@ class TaskRepository:
 
         # Build query filter
         query = {}
-        if validation_type:
-            query["validation_type"] = validation_type
+        if validation_types and len(validation_types) > 0:
+            query["validation_type"] = {"$in": validation_types}
+        if blockchain_networks and len(blockchain_networks) > 0:
+            query["blockchain_network"] = {"$in": blockchain_networks}
 
         # Get total count
         total_count = await self.collection.count_documents(query)
@@ -115,7 +122,10 @@ class TaskRepository:
         )
         tasks = await cursor.to_list(length=limit)
 
-        logger.info(f"Retrieved {len(tasks)} tasks (skip={skip}, limit={limit})")
+        logger.info(
+            f"Retrieved {len(tasks)} tasks (skip={skip}, limit={limit}, "
+            f"validation_types={validation_types}, blockchain_networks={blockchain_networks})"
+        )
         return tasks, total_count
 
     async def update_task_contract_data(
