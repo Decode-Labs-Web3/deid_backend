@@ -24,7 +24,10 @@ from app.domain.models.task import (
 from app.domain.repositories.task_repository import task_repository
 from app.infrastructure.blockchain.balance_validator import balance_validator
 from app.infrastructure.blockchain.contract_client import ContractClient
-from app.infrastructure.blockchain.signature_utils import sign_message_with_private_key
+from app.infrastructure.blockchain.signature_utils import (
+    sign_message_with_private_key,
+    sign_user_task_message,
+)
 from app.infrastructure.ipfs.ipfs_service import ipfs_service
 
 logger = get_logger(__name__)
@@ -330,31 +333,31 @@ class TaskService:
                 )
 
             # Step 4: Check if user already validated this task
-            existing_validation = await task_repository.get_user_task_validation(
-                user_id, task_id
-            )
+            # existing_validation = await task_repository.get_user_task_validation(
+            #     user_id, task_id
+            # )
 
-            if existing_validation:
-                logger.info(
-                    f"User {user_id} already validated task {task_id}, returning existing validation"
-                )
-                return TaskValidationResponseDTO(
-                    success=True,
-                    message="Task already validated for this user",
-                    data=TaskValidationDataDTO(
-                        task_id=task_id,
-                        user_wallet=wallet_address,
-                        actual_balance=str(
-                            existing_validation.get("actual_balance", "0")
-                        ),
-                        required_balance=str(task_data.get("minimum_balance", 0)),
-                        signature=existing_validation.get("signature", ""),
-                        verification_hash=existing_validation.get(
-                            "verification_hash", ""
-                        ),
-                        task_details=self._serialize_task(task_data),
-                    ),
-                )
+            # if existing_validation:
+            #     logger.info(
+            #         f"User {user_id} already validated task {task_id}, returning existing validation"
+            #     )
+            #     return TaskValidationResponseDTO(
+            #         success=True,
+            #         message="Task already validated for this user",
+            #         data=TaskValidationDataDTO(
+            #             task_id=task_id,
+            #             user_wallet=wallet_address,
+            #             actual_balance=str(
+            #                 existing_validation.get("actual_balance", "0")
+            #             ),
+            #             required_balance=str(task_data.get("minimum_balance", 0)),
+            #             signature=existing_validation.get("signature", ""),
+            #             verification_hash=existing_validation.get(
+            #                 "verification_hash", ""
+            #             ),
+            #             task_details=self._serialize_task(task_data),
+            #         ),
+            #     )
 
             # Step 5: Get RPC URL based on blockchain network
             blockchain_network = task_data.get("blockchain_network")
@@ -374,6 +377,9 @@ class TaskService:
 
             is_valid = False
             actual_balance = 0
+            logger.info(
+                f"Validating balance for user {user_id} on network {blockchain_network}"
+            )
 
             if validation_type == ValidationType.ERC20_BALANCE_CHECK.value:
                 is_valid, actual_balance = await balance_validator.check_erc20_balance(
@@ -403,16 +409,17 @@ class TaskService:
                     data=None,
                 )
 
-            # Step 7: Sign task_id using EVM_PRIVATE_KEY
+            # Step 7: Sign user_address + task_id using EVM_PRIVATE_KEY
+            # This prevents signature reuse attacks by binding the signature to the specific user
             if not settings.EVM_PRIVATE_KEY:
                 return TaskValidationResponseDTO(
                     success=False, message="EVM private key not configured", data=None
                 )
 
-            signature, signer_address, verification_hash = (
-                sign_message_with_private_key(
-                    message=task_id, private_key=settings.EVM_PRIVATE_KEY
-                )
+            signature, signer_address, verification_hash = sign_user_task_message(
+                user_address=wallet_address,
+                task_id=task_id,
+                private_key=settings.EVM_PRIVATE_KEY,
             )
 
             logger.info(

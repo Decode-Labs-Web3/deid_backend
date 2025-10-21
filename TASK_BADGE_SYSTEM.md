@@ -833,7 +833,29 @@ class IPFSService:
 
 ---
 
-### 5. **Contract Client** (`app/infrastructure/blockchain/contract_client.py`)
+### 5. **Signature Utilities** (`app/infrastructure/blockchain/signature_utils.py`)
+
+Handles secure signature generation for task validation:
+
+```python
+def sign_user_task_message(user_address: str, task_id: str, private_key: str) -> Tuple[str, str, str]
+def sign_message_with_private_key(message: str, private_key: str) -> Tuple[str, str, str]
+```
+
+**Security Features**:
+
+- **User Address Binding**: Signatures include both user address and task ID
+- **Prevents Reuse Attacks**: Each signature is unique to a specific user-task combination
+- **Message Format**: `keccak256(abi.encodePacked(userAddress, taskId))`
+- **EIP-191 Compliance**: Uses standard Ethereum message signing
+- **Smart Contract Compatible**: Matches contract's signature verification logic
+- **Byte-Level Compatibility**: Uses `abi.encodePacked` equivalent (raw bytes concatenation)
+
+**Purpose**: Secure signature generation preventing unauthorized badge minting
+
+---
+
+### 6. **Contract Client** (`app/infrastructure/blockchain/contract_client.py`)
 
 Web3 integration for smart contract interactions:
 
@@ -857,11 +879,23 @@ class ContractClient:
 function createBadge(string taskId, string metadataURI) public
 ```
 
-**Purpose**: Blockchain interaction layer
+**Signature Verification**:
+
+The smart contract validates signatures using this pattern:
+
+```solidity
+modifier validBadgeSignature(string memory taskId, bytes memory deid_validator_signature) {
+    bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, taskId));
+    require(SignatureLibrary.verify(messageHash, deid_validator_signature), "Invalid validator signature");
+    _;
+}
+```
+
+**Purpose**: Blockchain interaction layer with secure signature validation
 
 ---
 
-### 6. **Task Service** (`app/api/services/task_service.py`)
+### 7. **Task Service** (`app/api/services/task_service.py`)
 
 Business logic orchestration:
 
@@ -889,6 +923,17 @@ class TaskService:
 8. Update task with tx_hash and block_number
 9. Return serialized task data
 
+**Task Validation Logic**:
+
+1. Fetch user profile from Decode
+2. Extract primary wallet address
+3. Get task details from MongoDB
+4. Check if user already validated this task
+5. Validate balance on blockchain (ERC20/ERC721)
+6. **Sign user_address + task_id** (prevents signature reuse)
+7. Store successful validation with signature
+8. Return validation response with signature for badge minting
+
 **Error Handling**:
 
 - If IPFS fails → return error immediately
@@ -899,7 +944,7 @@ class TaskService:
 
 ---
 
-### 7. **Task Router** (`app/api/routers/task_router.py`)
+### 8. **Task Router** (`app/api/routers/task_router.py`)
 
 FastAPI endpoints:
 
@@ -1350,19 +1395,27 @@ http://localhost:8000/docs
    - **Implementation**: Uses `get_admin_user()` dependency in FastAPI
    - Implement rate limiting for API endpoints to prevent abuse
 
-3. **Input Validation**
+3. **Signature Security (Critical)**
+
+   - **User Address Binding**: Signatures now include both user wallet address and task ID
+   - **Prevents Reuse Attacks**: A signature for one user cannot be used by another user
+   - **Message Format**: `keccak256(abi.encodePacked(userAddress, taskId))`
+   - **Smart Contract Validation**: Contract verifies the signature is bound to `msg.sender`
+   - **Implementation**: Uses `sign_user_task_message()` function
+
+4. **Input Validation**
 
    - Pydantic validates all input data
    - Contract addresses are checksummed
    - MongoDB queries are parameterized
 
-4. **Gas Management**
+5. **Gas Management**
 
    - Automatic gas estimation with 20% buffer
    - Monitor gas prices on Sepolia
    - Set reasonable gas limits
 
-5. **IPFS Content**
+6. **IPFS Content**
    - Validate badge_image is a valid IPFS hash
    - Consider content moderation for user-submitted images
 
@@ -1476,5 +1529,8 @@ Future versions will use `/api/v2/task/` etc.
 - ✅ Users can select any combination (e.g., Ethereum + BSC only, exclude Base)
 - ✅ Input validation for filter parameters
 - ✅ MongoDB `$in` operator for efficient multi-value queries
+- 🔒 **SECURITY**: Enhanced signature binding to prevent reuse attacks
+- 🔒 **SECURITY**: Signatures now include user wallet address + task ID
+- 🔧 **FIXED**: Signature compatibility with smart contract `abi.encodePacked`
 
 For questions or issues, refer to this documentation or contact the development team.
