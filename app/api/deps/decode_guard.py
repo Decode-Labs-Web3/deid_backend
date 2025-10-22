@@ -3,14 +3,14 @@ Decode Authentication Guard for FastAPI.
 Provides session validation, Redis caching, and role-based access control.
 """
 
-from typing import Optional, Dict, Any, List, Callable
-from datetime import datetime, timezone, timedelta
 import uuid
-import httpx
+from datetime import datetime, timedelta, timezone
 from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
 
-from fastapi import HTTPException, Request, Depends, Response
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import httpx
+from fastapi import Depends, HTTPException, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -23,6 +23,7 @@ security = HTTPBearer(auto_error=False)
 
 # User role types
 UserRole = str  # 'user' | 'admin' | 'moderator'
+
 
 class AuthenticatedUser:
     """Authenticated user data structure."""
@@ -38,22 +39,36 @@ class AuthenticatedUser:
         self.last_login: Optional[datetime] = None
         self.is_active: Optional[bool] = None
 
+
 class SessionCacheDoc:
     """Session cache document structure."""
 
-    def __init__(self, session_token: str, access_token: str, user: Optional[AuthenticatedUser] = None, expires_at: Optional[datetime] = None):
+    def __init__(
+        self,
+        session_token: str,
+        access_token: str,
+        user: Optional[AuthenticatedUser] = None,
+        expires_at: Optional[datetime] = None,
+    ):
         self.session_token = session_token
         self.access_token = access_token
         self.user = user
         self.expires_at = expires_at
 
+
 class AuthServiceResponse:
     """Auth service response structure."""
 
-    def __init__(self, success: bool, data: Optional[Dict[str, Any]] = None, message: Optional[str] = None):
+    def __init__(
+        self,
+        success: bool,
+        data: Optional[Dict[str, Any]] = None,
+        message: Optional[str] = None,
+    ):
         self.success = success
         self.data = data
         self.message = message
+
 
 class DecodeAuthGuard:
     """Decode authentication guard with session validation and caching."""
@@ -61,19 +76,22 @@ class DecodeAuthGuard:
     def __init__(self):
         self.cache: Dict[str, Dict[str, Any]] = {}
         self.cache_ttl = 5 * 60 * 1000  # 5 minutes in milliseconds
-        self.auth_service_url = f"http://{settings.DECODE_AUTH_HOST}:{settings.DECODE_AUTH_PORT}"
+        self.auth_service_url = (
+            f"http://{settings.DECODE_AUTH_HOST}:{settings.DECODE_AUTH_PORT}"
+        )
 
     def extract_session_id_from_cookie(self, request: Request) -> Optional[str]:
         """Extract session ID directly from cookies."""
         return request.cookies.get("deid_session_id")
 
-    async def get_session_from_redis(self, session_id: str) -> Optional[SessionCacheDoc]:
+    async def get_session_from_redis(
+        self, session_id: str
+    ) -> Optional[SessionCacheDoc]:
         """Get session data from Redis cache."""
         try:
             cache_service = await get_cache_service()
             session_key = f"deid_session_id:{session_id}"
             session_data = await cache_service.get(session_key)
-
 
             if not session_data:
                 return None
@@ -84,7 +102,7 @@ class DecodeAuthGuard:
                 session_token=session_data["session_token"],
                 access_token=session_data["access_token"],
                 user=None,  # Will be populated after token validation
-                expires_at=None  # Not stored in Redis, will be calculated
+                expires_at=None,  # Not stored in Redis, will be calculated
             )
         except Exception as e:
             logger.error(f"Failed to retrieve session from Redis: {e}")
@@ -99,8 +117,8 @@ class DecodeAuthGuard:
                     json={"access_token": access_token},
                     headers={
                         "Content-Type": "application/json",
-                        "User-Agent": "DEID-Backend/1.0"
-                    }
+                        "User-Agent": "DEID-Backend/1.0",
+                    },
                 )
 
                 # Parse response once
@@ -111,8 +129,8 @@ class DecodeAuthGuard:
                         status_code=401,
                         detail={
                             "message": "Invalid or expired access token",
-                            "error": "TOKEN_EXPIRED"
-                        }
+                            "error": "TOKEN_EXPIRED",
+                        },
                     )
 
                 if not data.get("success") or not data.get("data"):
@@ -120,8 +138,8 @@ class DecodeAuthGuard:
                         status_code=401,
                         detail={
                             "message": "Invalid access token",
-                            "error": "INVALID_TOKEN"
-                        }
+                            "error": "INVALID_TOKEN",
+                        },
                     )
 
                 user_data = data["data"]
@@ -139,8 +157,8 @@ class DecodeAuthGuard:
                 status_code=503,
                 detail={
                     "message": "Authentication service timeout",
-                    "error": "SERVICE_TIMEOUT"
-                }
+                    "error": "SERVICE_TIMEOUT",
+                },
             )
         except httpx.ConnectError:
             logger.error("Auth service connection error")
@@ -148,8 +166,8 @@ class DecodeAuthGuard:
                 status_code=503,
                 detail={
                     "message": "Authentication service unavailable",
-                    "error": "SERVICE_UNAVAILABLE"
-                }
+                    "error": "SERVICE_UNAVAILABLE",
+                },
             )
         except HTTPException:
             raise
@@ -159,8 +177,8 @@ class DecodeAuthGuard:
                 status_code=401,
                 detail={
                     "message": "Token validation failed",
-                    "error": "VALIDATION_ERROR"
-                }
+                    "error": "VALIDATION_ERROR",
+                },
             )
 
     async def validate_session(self, session_id: str) -> AuthenticatedUser:
@@ -177,8 +195,8 @@ class DecodeAuthGuard:
                 status_code=401,
                 detail={
                     "message": "Session not found or expired",
-                    "error": "SESSION_NOT_FOUND"
-                }
+                    "error": "SESSION_NOT_FOUND",
+                },
             )
 
         # Validate access token and get user data
@@ -187,7 +205,7 @@ class DecodeAuthGuard:
         # Cache the result
         self.cache[session_id] = {
             "user": user,
-            "expires_at": datetime.now().timestamp() * 1000 + self.cache_ttl
+            "expires_at": datetime.now().timestamp() * 1000 + self.cache_ttl,
         }
 
         return user
@@ -208,13 +226,20 @@ class DecodeAuthGuard:
                 r = await client.post(
                     refresh_url,
                     json={"session_token": session_token},
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 )
                 data = r.json()
-                if r.status_code != 200 or not data.get("success") or not data.get("data"):
+                if (
+                    r.status_code != 200
+                    or not data.get("success")
+                    or not data.get("data")
+                ):
                     raise HTTPException(
                         status_code=401,
-                        detail={"message": "Session refresh failed", "error": "REFRESH_FAILED"}
+                        detail={
+                            "message": "Session refresh failed",
+                            "error": "REFRESH_FAILED",
+                        },
                     )
 
                 payload = data["data"]
@@ -224,11 +249,15 @@ class DecodeAuthGuard:
                 if not new_access_token or not new_session_token or not expires_at_str:
                     raise HTTPException(
                         status_code=401,
-                        detail={"message": "Invalid refresh payload", "error": "REFRESH_INVALID"}
+                        detail={
+                            "message": "Invalid refresh payload",
+                            "error": "REFRESH_INVALID",
+                        },
                     )
 
                 # Compute TTL
                 from dateutil import parser
+
                 exp_dt = parser.isoparse(expires_at_str)
                 if exp_dt.tzinfo is None:
                     exp_dt = exp_dt.replace(tzinfo=timezone.utc)
@@ -242,10 +271,14 @@ class DecodeAuthGuard:
 
                 cache_service = await get_cache_service()
                 await cache_service.delete(old_key)
-                await cache_service.set(new_key, {
-                    "access_token": new_access_token,
-                    "session_token": new_session_token,
-                }, expire=ttl_seconds)
+                await cache_service.set(
+                    new_key,
+                    {
+                        "access_token": new_access_token,
+                        "session_token": new_session_token,
+                    },
+                    expire=ttl_seconds,
+                )
 
                 # Set cookie if response provided
                 if response is not None:
@@ -265,17 +298,22 @@ class DecodeAuthGuard:
                 if old_session_id in self.cache:
                     del self.cache[old_session_id]
 
-                return {"new_session_id": new_session_id, "access_token": new_access_token}
+                return {
+                    "new_session_id": new_session_id,
+                    "access_token": new_access_token,
+                }
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Refresh session error: {e}")
             raise HTTPException(
                 status_code=401,
-                detail={"message": "Session refresh failed", "error": "REFRESH_ERROR"}
+                detail={"message": "Session refresh failed", "error": "REFRESH_ERROR"},
             )
 
-    def check_role_access(self, user: AuthenticatedUser, required_roles: Optional[List[str]] = None) -> None:
+    def check_role_access(
+        self, user: AuthenticatedUser, required_roles: Optional[List[str]] = None
+    ) -> None:
         """Check if user has required role access."""
         if not required_roles or len(required_roles) == 0:
             return  # No role requirements
@@ -285,11 +323,16 @@ class DecodeAuthGuard:
                 status_code=403,
                 detail={
                     "message": f"Access denied. Required roles: {', '.join(required_roles)}. Your role: {user.role}",
-                    "error": "INSUFFICIENT_PERMISSIONS"
-                }
+                    "error": "INSUFFICIENT_PERMISSIONS",
+                },
             )
 
-    async def authenticate(self, request: Request, required_roles: Optional[List[str]] = None, response: Optional[Response] = None) -> AuthenticatedUser:
+    async def authenticate(
+        self,
+        request: Request,
+        required_roles: Optional[List[str]] = None,
+        response: Optional[Response] = None,
+    ) -> AuthenticatedUser:
         """Main authentication method."""
         # Extract session ID directly from cookie
         session_id = self.extract_session_id_from_cookie(request)
@@ -299,8 +342,8 @@ class DecodeAuthGuard:
                 status_code=401,
                 detail={
                     "message": "Session ID is required",
-                    "error": "MISSING_SESSION_ID"
-                }
+                    "error": "MISSING_SESSION_ID",
+                },
             )
 
         try:
@@ -312,7 +355,9 @@ class DecodeAuthGuard:
                 if e.status_code == 401:
                     session_doc = await self.get_session_from_redis(session_id)
                     if session_doc and session_doc.session_token:
-                        rotate = await self.refresh_session_and_rotate_cookie(session_id, session_doc.session_token, response)
+                        rotate = await self.refresh_session_and_rotate_cookie(
+                            session_id, session_doc.session_token, response
+                        )
                         # Use new access token to get user
                         user = await self.validate_access_token(rotate["access_token"])
                     else:
@@ -323,7 +368,9 @@ class DecodeAuthGuard:
             self.check_role_access(user, required_roles)
 
             # Log successful authentication
-            logger.info(f"User {user.user_id} ({user.role}) accessed {request.method} {request.url}")
+            logger.info(
+                f"User {user.user_id} ({user.role}) accessed {request.method} {request.url}"
+            )
 
             return user
 
@@ -335,8 +382,8 @@ class DecodeAuthGuard:
                 status_code=401,
                 detail={
                     "message": "Authentication failed",
-                    "error": "AUTHENTICATION_ERROR"
-                }
+                    "error": "AUTHENTICATION_ERROR",
+                },
             )
 
     def clear_cache(self) -> None:
@@ -385,6 +432,7 @@ def require_roles(*roles: str):
         async def admin_endpoint(current_user: AuthenticatedUser = Depends(get_current_user)):
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -397,22 +445,21 @@ def require_roles(*roles: str):
 
             if not request:
                 # Try to get from kwargs
-                request = kwargs.get('request')
+                request = kwargs.get("request")
 
             if not request:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Request object not found"
-                )
+                raise HTTPException(status_code=500, detail="Request object not found")
 
             # Authenticate with required roles
             user = await decode_auth_guard.authenticate(request, list(roles))
 
             # Add user to kwargs
-            kwargs['current_user'] = user
+            kwargs["current_user"] = user
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -421,12 +468,15 @@ def require_permissions(*permissions: str):
     Decorator to require specific permissions for an endpoint.
     Note: This is a placeholder - implement permission logic as needed.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
             # TODO: Implement permission checking logic
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -434,9 +484,11 @@ def public_endpoint(func: Callable) -> Callable:
     """
     Decorator to mark an endpoint as public (no authentication required).
     """
+
     @wraps(func)
     async def wrapper(*args, **kwargs):
         return await func(*args, **kwargs)
+
     return wrapper
 
 
