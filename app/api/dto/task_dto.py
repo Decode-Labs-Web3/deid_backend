@@ -19,8 +19,6 @@ class BlockchainNetwork(str, Enum):
 
 
 # Badge Detail DTO
-
-
 class BadgeAttributes(BaseModel):
     """Badge attributes."""
 
@@ -48,6 +46,12 @@ class OriginTaskCreateRequestDTO(BaseModel):
     token_contract_address: str = Field(..., description="Token contract address")
     minimum_balance: int = Field(..., description="Minimum balance")
     badge_details: BadgeDetail = Field(..., description="Badge details")
+
+
+class OriginTaskValidateRequestDTO(BaseModel):
+    """Request DTO for validating a task"""
+
+    task_id: str = Field(..., description="Task ID")
 
 
 # Response DTOs
@@ -85,4 +89,32 @@ class TaskListResponseDTO(BaseModel):
     pagination: Dict[str, int] = Field(
         ...,
         description="Pagination metadata (page, page_size, total_count, total_pages)",
+    )
+
+
+# Task Validation DTOs
+class TaskValidationDataDTO(BaseModel):
+    """Data DTO for task validation response."""
+
+    task_id: str = Field(..., description="Task ID")
+    user_wallet: str = Field(..., description="User's primary wallet address")
+    actual_balance: str = Field(
+        ...,
+        description="Actual balance at validation time (as string to handle large numbers)",
+    )
+    required_balance: str = Field(
+        ..., description="Required minimum balance (as string to handle large numbers)"
+    )
+    signature: str = Field(..., description="Validation signature for badge minting")
+    verification_hash: str = Field(..., description="Verification hash")
+    task_details: Dict[str, Any] = Field(..., description="Task details")
+
+
+class TaskValidationResponseDTO(BaseModel):
+    """Response DTO for task validation."""
+
+    success: bool = Field(..., description="Validation success status")
+    message: str = Field(..., description="Response message")
+    data: Optional[TaskValidationDataDTO] = Field(
+        None, description="Validation data with signature"
     )

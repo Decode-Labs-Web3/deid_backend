@@ -10,6 +10,20 @@ The Task & Badge Management System allows administrators to create on-chain veri
 - **Task Viewing**: Public access (no authentication required)
 - **Task Types Supported**: ERC20 balance verification, ERC721 balance verification
 
+### Filtering Capabilities
+
+Users can filter tasks with **multi-select** support:
+
+- **Type**: `token` (ERC20) and/or `nft` (ERC721) - can select one or both
+- **Network**: `ethereum`, `bsc`, `base` - can select one, two, or all three
+- **Default**: If no filters specified, shows tasks from ALL types and ALL networks
+
+Examples:
+
+- All tasks: `GET /api/v1/task/list`
+- Only Ethereum and BSC: `GET /api/v1/task/list?network=ethereum&network=bsc`
+- Token tasks on all networks: `GET /api/v1/task/list?type=token`
+
 ---
 
 ## Table of Contents
@@ -17,9 +31,10 @@ The Task & Badge Management System allows administrators to create on-chain veri
 1. [System Architecture](#system-architecture)
 2. [Data Flow](#data-flow)
 3. [API Endpoints](#api-endpoints)
-4. [Code Structure](#code-structure)
-5. [Configuration](#configuration)
-6. [Usage Examples](#usage-examples)
+4. [Task Filtering](#task-filtering)
+5. [Code Structure](#code-structure)
+6. [Configuration](#configuration)
+7. [Usage Examples](#usage-examples)
 
 ---
 
@@ -282,14 +297,41 @@ The Task & Badge Management System allows administrators to create on-chain veri
 
 - `page` (integer, default: 1) - Page number (1-indexed)
 - `page_size` (integer, default: 10, max: 100) - Items per page
-- `validation_type` (string, optional) - Filter by validation type
-  - `erc20_balance_check` - ERC20 token balance verification
-  - `erc721_balance_check` - ERC721 NFT ownership verification
+- `type` (array of strings, optional) - Filter by task types (multi-select)
+  - `token` - ERC20 token balance verification tasks
+  - `nft` - ERC721 NFT ownership verification tasks
+  - Can pass multiple values: `type=token&type=nft` (shows both)
+  - Default: Shows all types if not specified
+- `network` (array of strings, optional) - Filter by blockchain networks (multi-select)
+  - `ethereum` - Ethereum mainnet/testnet
+  - `bsc` - Binance Smart Chain
+  - `base` - Base network
+  - Can pass multiple values: `network=ethereum&network=bsc` (shows both)
+  - Default: Shows all networks if not specified
 
-**Example Request**:
+**Example Requests**:
 
 ```
-GET /api/v1/task/list?page=1&page_size=10&validation_type=erc20_balance_check
+# Get all tasks (all types, all networks)
+GET /api/v1/task/list?page=1&page_size=10
+
+# Filter by single task type (token tasks only)
+GET /api/v1/task/list?page=1&page_size=10&type=token
+
+# Filter by multiple task types (both token and nft)
+GET /api/v1/task/list?page=1&page_size=10&type=token&type=nft
+
+# Filter by single network (Ethereum only)
+GET /api/v1/task/list?page=1&page_size=10&network=ethereum
+
+# Filter by multiple networks (Ethereum and BSC, exclude Base)
+GET /api/v1/task/list?page=1&page_size=10&network=ethereum&network=bsc
+
+# Combine filters: Token tasks on Ethereum and Base (exclude BSC)
+GET /api/v1/task/list?page=1&page_size=10&type=token&network=ethereum&network=base
+
+# Show all types but only on Ethereum
+GET /api/v1/task/list?page=1&page_size=10&network=ethereum
 ```
 
 **Response**:
@@ -320,6 +362,22 @@ GET /api/v1/task/list?page=1&page_size=10&validation_type=erc20_balance_check
     "page_size": 10,
     "total_count": 25,
     "total_pages": 3
+  }
+}
+```
+
+**Error Response (Invalid Filter)**:
+
+```json
+{
+  "success": false,
+  "message": "Invalid type filter. Allowed values: 'token', 'nft'",
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total_count": 0,
+    "total_pages": 0
   }
 }
 ```
@@ -362,6 +420,325 @@ GET /api/v1/task/507f1f77bcf86cd799439011
   "message": "Task not found",
   "data": null
 }
+```
+
+---
+
+## Task Filtering
+
+The task list endpoint supports **multi-select filtering** capabilities to help users find relevant tasks quickly. Users can select multiple values for each filter category.
+
+### Filter Behavior
+
+- **Default (No Filters)**: Shows ALL tasks from ALL types and ALL networks
+- **Multi-Select**: Users can select multiple values for each filter
+- **Flexible**: Can select any combination (e.g., Ethereum + BSC only, exclude Base)
+
+### Available Filters
+
+#### 1. Type Filter (`type`) - Multi-Select
+
+Filter tasks by their validation type. Can select one or both:
+
+| Value   | Description                             | Internal Mapping       |
+| ------- | --------------------------------------- | ---------------------- |
+| `token` | ERC20 token balance verification tasks  | `erc20_balance_check`  |
+| `nft`   | ERC721 NFT ownership verification tasks | `erc721_balance_check` |
+
+**Examples**:
+
+```
+# Only token tasks
+GET /api/v1/task/list?type=token
+
+# Only NFT tasks
+GET /api/v1/task/list?type=nft
+
+# Both token AND nft tasks (explicitly select both)
+GET /api/v1/task/list?type=token&type=nft
+```
+
+**Use Cases**:
+
+- Show only token tasks for DeFi-focused users
+- Show only NFT tasks for collectors
+- Allow users to toggle between task types
+- Let users select which types they want to see
+
+---
+
+#### 2. Network Filter (`network`) - Multi-Select
+
+Filter tasks by blockchain network. Can select one, two, or all three:
+
+| Value      | Description              | Use Case                    |
+| ---------- | ------------------------ | --------------------------- |
+| `ethereum` | Ethereum mainnet/testnet | Tasks on Ethereum ecosystem |
+| `bsc`      | Binance Smart Chain      | Tasks on BSC ecosystem      |
+| `base`     | Base network             | Tasks on Base L2            |
+
+**Examples**:
+
+```
+# Only Ethereum tasks
+GET /api/v1/task/list?network=ethereum
+
+# Ethereum AND BSC (exclude Base)
+GET /api/v1/task/list?network=ethereum&network=bsc
+
+# Only Base tasks (exclude Ethereum and BSC)
+GET /api/v1/task/list?network=base
+
+# All three networks (explicit, same as no filter)
+GET /api/v1/task/list?network=ethereum&network=bsc&network=base
+```
+
+**Use Cases**:
+
+- Show tasks for user's connected wallet network
+- Filter by gas cost preferences (L2 vs mainnet)
+- Allow users to uncheck networks they're not interested in
+- Users can select "Ethereum + Base" only
+
+---
+
+#### 3. Combined Multi-Select Filters
+
+Combine both filters with multi-select for precise queries:
+
+**Examples**:
+
+```
+# Token tasks on Ethereum AND BSC (no Base, no NFT)
+GET /api/v1/task/list?type=token&network=ethereum&network=bsc
+
+# NFT tasks on Base only
+GET /api/v1/task/list?type=nft&network=base
+
+# Both types (token + nft) but only on Ethereum
+GET /api/v1/task/list?type=token&type=nft&network=ethereum
+
+# Token tasks on all networks (default networks)
+GET /api/v1/task/list?type=token
+```
+
+---
+
+### Filter Validation
+
+The API validates filter parameters and returns helpful error messages:
+
+**Invalid Type Filter**:
+
+```json
+{
+  "success": false,
+  "message": "Invalid type filter. Allowed values: 'token', 'nft'",
+  "data": [],
+  "pagination": {...}
+}
+```
+
+**Invalid Network Filter**:
+
+```json
+{
+  "success": false,
+  "message": "Invalid network filter. Allowed values: ethereum, bsc, base",
+  "data": [],
+  "pagination": {...}
+}
+```
+
+---
+
+### Frontend Implementation Example
+
+```typescript
+interface TaskFilters {
+  page?: number;
+  pageSize?: number;
+  types?: Array<"token" | "nft">; // Multi-select
+  networks?: Array<"ethereum" | "bsc" | "base">; // Multi-select
+}
+
+const fetchTasks = async (filters: TaskFilters) => {
+  const params = new URLSearchParams();
+
+  if (filters.page) params.append("page", filters.page.toString());
+  if (filters.pageSize) params.append("page_size", filters.pageSize.toString());
+
+  // Add multiple type filters
+  if (filters.types) {
+    filters.types.forEach((type) => params.append("type", type));
+  }
+
+  // Add multiple network filters
+  if (filters.networks) {
+    filters.networks.forEach((network) => params.append("network", network));
+  }
+
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?${params.toString()}`
+  );
+
+  return response.json();
+};
+
+// Usage examples
+
+// All tasks (no filters)
+await fetchTasks({});
+
+// Only token tasks (all networks)
+await fetchTasks({ types: ["token"] });
+
+// Only NFT tasks (all networks)
+await fetchTasks({ types: ["nft"] });
+
+// Both types (all networks)
+await fetchTasks({ types: ["token", "nft"] });
+
+// Only Ethereum tasks (all types)
+await fetchTasks({ networks: ["ethereum"] });
+
+// Ethereum AND BSC only (exclude Base, all types)
+await fetchTasks({ networks: ["ethereum", "bsc"] });
+
+// Token tasks on Ethereum AND Base (no BSC, no NFT)
+await fetchTasks({
+  types: ["token"],
+  networks: ["ethereum", "base"],
+});
+
+// All types but only on BSC
+await fetchTasks({ networks: ["bsc"] });
+```
+
+### React Component Example (Checkboxes)
+
+```tsx
+import React, { useState, useEffect } from "react";
+
+const TaskFilterComponent = () => {
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([
+    "token",
+    "nft",
+  ]);
+  const [selectedNetworks, setSelectedNetworks] = useState<string[]>([
+    "ethereum",
+    "bsc",
+    "base",
+  ]);
+  const [tasks, setTasks] = useState([]);
+
+  // Fetch tasks when filters change
+  useEffect(() => {
+    const loadTasks = async () => {
+      const result = await fetchTasks({
+        types: selectedTypes.length > 0 ? selectedTypes : undefined,
+        networks: selectedNetworks.length > 0 ? selectedNetworks : undefined,
+      });
+      if (result.success) {
+        setTasks(result.data);
+      }
+    };
+    loadTasks();
+  }, [selectedTypes, selectedNetworks]);
+
+  const toggleType = (type: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const toggleNetwork = (network: string) => {
+    setSelectedNetworks((prev) =>
+      prev.includes(network)
+        ? prev.filter((n) => n !== network)
+        : [...prev, network]
+    );
+  };
+
+  return (
+    <div>
+      <div>
+        <h3>Task Type</h3>
+        <label>
+          <input
+            type="checkbox"
+            checked={selectedTypes.includes("token")}
+            onChange={() => toggleType("token")}
+          />
+          Token (ERC20)
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={selectedTypes.includes("nft")}
+            onChange={() => toggleType("nft")}
+          />
+          NFT (ERC721)
+        </label>
+      </div>
+
+      <div>
+        <h3>Network</h3>
+        <label>
+          <input
+            type="checkbox"
+            checked={selectedNetworks.includes("ethereum")}
+            onChange={() => toggleNetwork("ethereum")}
+          />
+          Ethereum
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={selectedNetworks.includes("bsc")}
+            onChange={() => toggleNetwork("bsc")}
+          />
+          BSC
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={selectedNetworks.includes("base")}
+            onChange={() => toggleNetwork("base")}
+          />
+          Base
+        </label>
+      </div>
+
+      <div>
+        <h3>Tasks</h3>
+        {tasks.map((task) => (
+          <div key={task.id}>{task.task_title}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+### Database Indexing Recommendations
+
+For optimal query performance with filters, create these MongoDB indexes:
+
+```javascript
+// Compound index for filtering and sorting
+db.tasks.createIndex({
+  validation_type: 1,
+  blockchain_network: 1,
+  created_at: -1,
+});
+
+// Individual indexes for each filter
+db.tasks.createIndex({ validation_type: 1 });
+db.tasks.createIndex({ blockchain_network: 1 });
+db.tasks.createIndex({ created_at: -1 });
 ```
 
 ---
@@ -417,7 +794,7 @@ Handles all MongoDB operations:
 class TaskRepository:
     async def create_task(task_data: TaskModel) -> dict
     async def get_task_by_id(task_id: str) -> Optional[dict]
-    async def get_tasks_paginated(skip, limit, validation_type) -> tuple[List[dict], int]
+    async def get_tasks_paginated(skip, limit, validation_types, blockchain_networks) -> tuple[List[dict], int]
     async def update_task_contract_data(task_id, tx_hash, block_number) -> bool
 ```
 
@@ -426,7 +803,10 @@ class TaskRepository:
 - Async MongoDB operations using Motor
 - Automatic timestamps (created_at, updated_at)
 - Pagination support with total count
-- Optional filtering by validation type
+- **Multi-select filtering** by validation types (ERC20/ERC721) - accepts list of types
+- **Multi-select filtering** by blockchain networks (ethereum/bsc/base) - accepts list of networks
+- Uses MongoDB `$in` operator for efficient multi-value queries
+- Supports combined filters for precise queries (e.g., token tasks on Ethereum + BSC only)
 
 **Purpose**: Database abstraction layer, makes testing easier
 
@@ -453,7 +833,29 @@ class IPFSService:
 
 ---
 
-### 5. **Contract Client** (`app/infrastructure/blockchain/contract_client.py`)
+### 5. **Signature Utilities** (`app/infrastructure/blockchain/signature_utils.py`)
+
+Handles secure signature generation for task validation:
+
+```python
+def sign_user_task_message(user_address: str, task_id: str, private_key: str) -> Tuple[str, str, str]
+def sign_message_with_private_key(message: str, private_key: str) -> Tuple[str, str, str]
+```
+
+**Security Features**:
+
+- **User Address Binding**: Signatures include both user address and task ID
+- **Prevents Reuse Attacks**: Each signature is unique to a specific user-task combination
+- **Message Format**: `keccak256(abi.encodePacked(userAddress, taskId))`
+- **EIP-191 Compliance**: Uses standard Ethereum message signing
+- **Smart Contract Compatible**: Matches contract's signature verification logic
+- **Byte-Level Compatibility**: Uses `abi.encodePacked` equivalent (raw bytes concatenation)
+
+**Purpose**: Secure signature generation preventing unauthorized badge minting
+
+---
+
+### 6. **Contract Client** (`app/infrastructure/blockchain/contract_client.py`)
 
 Web3 integration for smart contract interactions:
 
@@ -477,20 +879,37 @@ class ContractClient:
 function createBadge(string taskId, string metadataURI) public
 ```
 
-**Purpose**: Blockchain interaction layer
+**Signature Verification**:
+
+The smart contract validates signatures using this pattern:
+
+```solidity
+modifier validBadgeSignature(string memory taskId, bytes memory deid_validator_signature) {
+    bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, taskId));
+    require(SignatureLibrary.verify(messageHash, deid_validator_signature), "Invalid validator signature");
+    _;
+}
+```
+
+**Purpose**: Blockchain interaction layer with secure signature validation
 
 ---
 
-### 6. **Task Service** (`app/api/services/task_service.py`)
+### 7. **Task Service** (`app/api/services/task_service.py`)
 
 Business logic orchestration:
 
 ```python
 class TaskService:
     async def create_task(request) -> Tuple[bool, str, Optional[Dict]]
-    async def get_tasks_paginated(page, page_size, validation_type)
+    async def get_tasks_paginated(page, page_size, validation_types, blockchain_networks)
     async def get_task_by_id(task_id)
 ```
+
+**Key Updates**:
+
+- Accepts lists for `validation_types` and `blockchain_networks` parameters
+- Enables multi-select filtering at service layer
 
 **Create Task Logic**:
 
@@ -504,6 +923,17 @@ class TaskService:
 8. Update task with tx_hash and block_number
 9. Return serialized task data
 
+**Task Validation Logic**:
+
+1. Fetch user profile from Decode
+2. Extract primary wallet address
+3. Get task details from MongoDB
+4. Check if user already validated this task
+5. Validate balance on blockchain (ERC20/ERC721)
+6. **Sign user_address + task_id** (prevents signature reuse)
+7. Store successful validation with signature
+8. Return validation response with signature for badge minting
+
 **Error Handling**:
 
 - If IPFS fails → return error immediately
@@ -514,7 +944,7 @@ class TaskService:
 
 ---
 
-### 7. **Task Router** (`app/api/routers/task_router.py`)
+### 8. **Task Router** (`app/api/routers/task_router.py`)
 
 FastAPI endpoints:
 
@@ -632,20 +1062,85 @@ const createTask = async () => {
 };
 ```
 
-#### 2. List Tasks
+#### 2. List Tasks (Multi-Select Filters)
 
 ```typescript
-// Get paginated task list
-const getTasks = async (page = 1) => {
+// Get all tasks (no filters - shows all types and networks)
+const getAllTasks = async (page = 1) => {
   const response = await fetch(
-    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&validation_type=erc20_balance_check`
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10`
   );
 
   const result = await response.json();
 
   if (result.success) {
-    console.log("Tasks:", result.data);
+    console.log("All Tasks:", result.data);
     console.log("Total pages:", result.pagination.total_pages);
+  }
+};
+
+// Get token tasks only (all networks)
+const getTokenTasks = async (page = 1) => {
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&type=token`
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Token Tasks:", result.data);
+  }
+};
+
+// Get both token AND nft tasks (all networks)
+const getBothTypesTasks = async (page = 1) => {
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&type=token&type=nft`
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Token + NFT Tasks:", result.data);
+  }
+};
+
+// Get Ethereum tasks only (all types)
+const getEthereumTasks = async (page = 1) => {
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&network=ethereum`
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Ethereum Tasks:", result.data);
+  }
+};
+
+// Get Ethereum AND BSC tasks (exclude Base, all types)
+const getEthAndBscTasks = async (page = 1) => {
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&network=ethereum&network=bsc`
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Ethereum + BSC Tasks:", result.data);
+  }
+};
+
+// Token tasks on Ethereum AND Base (exclude BSC and NFT tasks)
+const getTokenOnEthAndBase = async (page = 1) => {
+  const response = await fetch(
+    `http://localhost:8000/api/v1/task/list?page=${page}&page_size=10&type=token&network=ethereum&network=base`
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Token Tasks on Ethereum + Base:", result.data);
   }
 };
 ```
@@ -733,11 +1228,13 @@ function mintBadge(string memory taskId, bytes memory signature) external;
 }
 ```
 
-**Indexes**:
+**Indexes** (Recommended):
 
 - `_id` - Primary key (automatic)
-- `validation_type` - For filtering
+- `validation_type` - For type filtering (token/nft)
+- `blockchain_network` - For network filtering (ethereum/bsc/base)
 - `created_at` - For sorting (descending)
+- Compound index: `(validation_type, blockchain_network, created_at)` - For optimal combined filter queries
 
 ---
 
@@ -806,18 +1303,53 @@ curl -X POST http://localhost:8000/api/v1/task/create \
     }
   }'
 
-# 2. List tasks (no auth)
+# 2. List all tasks (no filters - shows all types and networks)
 curl http://localhost:8000/api/v1/task/list?page=1&page_size=10
 
-# 3. Get task by ID
+# 3. List token tasks only (all networks)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=token
+
+# 4. List NFT tasks only (all networks)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=nft
+
+# 5. List both token AND nft tasks (all networks)
+curl "http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=token&type=nft"
+
+# 6. List Ethereum tasks only (all types)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&network=ethereum
+
+# 7. List Ethereum AND BSC tasks (exclude Base, all types)
+curl "http://localhost:8000/api/v1/task/list?page=1&page_size=10&network=ethereum&network=bsc"
+
+# 8. List Base network tasks only (all types)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&network=base
+
+# 9. Token tasks on Ethereum only
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=token&network=ethereum
+
+# 10. Token tasks on Ethereum AND Base (exclude BSC)
+curl "http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=token&network=ethereum&network=base"
+
+# 11. NFT tasks on all three networks (explicit)
+curl "http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=nft&network=ethereum&network=bsc&network=base"
+
+# 12. Get task by ID
 curl http://localhost:8000/api/v1/task/507f1f77bcf86cd799439011
 
-# 4. Test non-admin access (should return 403 Forbidden)
+# 13. Test non-admin access (should return 403 Forbidden)
 curl -X POST http://localhost:8000/api/v1/task/create \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_NON_ADMIN_JWT_TOKEN" \
   -d '{...}'
 # Response: {"detail": {"message": "Access denied. Required roles: admin. Your role: user", "error": "INSUFFICIENT_PERMISSIONS"}}
+
+# 14. Test invalid type filter (should return error)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&type=invalid
+# Response: {"success": false, "message": "Invalid type filter 'invalid'. Allowed values: 'token', 'nft'", ...}
+
+# 15. Test invalid network filter (should return error)
+curl http://localhost:8000/api/v1/task/list?page=1&page_size=10&network=polygon
+# Response: {"success": false, "message": "Invalid network filter 'polygon'. Allowed values: ethereum, bsc, base", ...}
 ```
 
 ### Swagger UI
@@ -863,19 +1395,27 @@ http://localhost:8000/docs
    - **Implementation**: Uses `get_admin_user()` dependency in FastAPI
    - Implement rate limiting for API endpoints to prevent abuse
 
-3. **Input Validation**
+3. **Signature Security (Critical)**
+
+   - **User Address Binding**: Signatures now include both user wallet address and task ID
+   - **Prevents Reuse Attacks**: A signature for one user cannot be used by another user
+   - **Message Format**: `keccak256(abi.encodePacked(userAddress, taskId))`
+   - **Smart Contract Validation**: Contract verifies the signature is bound to `msg.sender`
+   - **Implementation**: Uses `sign_user_task_message()` function
+
+4. **Input Validation**
 
    - Pydantic validates all input data
    - Contract addresses are checksummed
    - MongoDB queries are parameterized
 
-4. **Gas Management**
+5. **Gas Management**
 
    - Automatic gas estimation with 20% buffer
    - Monitor gas prices on Sepolia
    - Set reasonable gas limits
 
-5. **IPFS Content**
+6. **IPFS Content**
    - Validate badge_image is a valid IPFS hash
    - Consider content moderation for user-submitted images
 
@@ -978,7 +1518,19 @@ Future versions will use `/api/v2/task/` etc.
 ## Support & Maintenance
 
 **Created**: October 18, 2025
-**Last Updated**: October 18, 2025
+**Last Updated**: October 21, 2025
 **Status**: Production Ready ✅
+
+**Recent Updates**:
+
+- ✅ Added **multi-select** task filtering by type (token/nft)
+- ✅ Added **multi-select** task filtering by network (ethereum/bsc/base)
+- ✅ Support for combined filters with multiple selections
+- ✅ Users can select any combination (e.g., Ethereum + BSC only, exclude Base)
+- ✅ Input validation for filter parameters
+- ✅ MongoDB `$in` operator for efficient multi-value queries
+- 🔒 **SECURITY**: Enhanced signature binding to prevent reuse attacks
+- 🔒 **SECURITY**: Signatures now include user wallet address + task ID
+- 🔧 **FIXED**: Signature compatibility with smart contract `abi.encodePacked`
 
 For questions or issues, refer to this documentation or contact the development team.

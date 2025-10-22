@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.domain.models.task import TaskModel
+from app.domain.models.task import TaskModel, TaskValidationModel
 
 logger = get_logger(__name__)
 
@@ -24,6 +24,7 @@ class TaskRepository:
         self.client: Optional[AsyncIOMotorClient] = None
         self.db = None
         self.collection = None
+        self.validations_collection = None
 
     async def connect(self):
         """Connect to MongoDB."""
@@ -31,6 +32,7 @@ class TaskRepository:
             self.client = AsyncIOMotorClient(settings.MONGO_URI)
             self.db = self.client[settings.MONGO_DB_NAME]
             self.collection = self.db["tasks"]
+            self.validations_collection = self.db["task_validations"]
             logger.info("Connected to MongoDB tasks collection")
 
     async def disconnect(self):
@@ -84,7 +86,11 @@ class TaskRepository:
             return None
 
     async def get_tasks_paginated(
-        self, skip: int = 0, limit: int = 10, validation_type: Optional[str] = None
+        self,
+        skip: int = 0,
+        limit: int = 10,
+        validation_types: Optional[List[str]] = None,
+        blockchain_networks: Optional[List[str]] = None,
     ) -> tuple[List[dict], int]:
         """
         Get paginated list of tasks.
@@ -92,7 +98,8 @@ class TaskRepository:
         Args:
             skip: Number of documents to skip
             limit: Maximum number of documents to return
-            validation_type: Optional filter by validation type
+            validation_types: Optional filter by validation types (list of erc20_balance_check, erc721_balance_check)
+            blockchain_networks: Optional filter by blockchain networks (list of ethereum, bsc, base)
 
         Returns:
             Tuple of (list of tasks, total count)
@@ -101,8 +108,10 @@ class TaskRepository:
 
         # Build query filter
         query = {}
-        if validation_type:
-            query["validation_type"] = validation_type
+        if validation_types and len(validation_types) > 0:
+            query["validation_type"] = {"$in": validation_types}
+        if blockchain_networks and len(blockchain_networks) > 0:
+            query["blockchain_network"] = {"$in": blockchain_networks}
 
         # Get total count
         total_count = await self.collection.count_documents(query)
@@ -113,7 +122,10 @@ class TaskRepository:
         )
         tasks = await cursor.to_list(length=limit)
 
-        logger.info(f"Retrieved {len(tasks)} tasks (skip={skip}, limit={limit})")
+        logger.info(
+            f"Retrieved {len(tasks)} tasks (skip={skip}, limit={limit}, "
+            f"validation_types={validation_types}, blockchain_networks={blockchain_networks})"
+        )
         return tasks, total_count
 
     async def update_task_contract_data(
@@ -148,6 +160,59 @@ class TaskRepository:
         except Exception as e:
             logger.error(f"Error updating task {task_id}: {e}")
             return False
+
+    async def create_task_validation(
+        self, validation_data: TaskValidationModel
+    ) -> Optional[dict]:
+        """
+        Create a new task validation record.
+
+        Args:
+            validation_data: Task validation data
+
+        Returns:
+            Created validation document with _id
+        """
+        await self.connect()
+
+        validation_dict = validation_data.model_dump()
+        validation_dict["created_at"] = datetime.now(timezone.utc)
+
+        result = await self.validations_collection.insert_one(validation_dict)
+
+        # Retrieve the created document
+        created_validation = await self.validations_collection.find_one(
+            {"_id": result.inserted_id}
+        )
+
+        logger.info(
+            f"Created task validation for user {validation_data.user_id}, task {validation_data.task_id}"
+        )
+        return created_validation
+
+    async def get_user_task_validation(
+        self, user_id: str, task_id: str
+    ) -> Optional[dict]:
+        """
+        Get task validation for a user and task.
+
+        Args:
+            user_id: User ID
+            task_id: Task ID
+
+        Returns:
+            Validation document or None if not found
+        """
+        await self.connect()
+
+        try:
+            validation = await self.validations_collection.find_one(
+                {"user_id": user_id, "task_id": task_id}
+            )
+            return validation
+        except Exception as e:
+            logger.error(f"Error getting task validation: {e}")
+            return None
 
 
 # Global repository instance

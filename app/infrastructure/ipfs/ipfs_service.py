@@ -75,7 +75,7 @@ class IPFSService:
         Returns:
             Full IPFS URL
         """
-        return f"{self.ipfs_gateway}/{ipfs_hash}"
+        return f"ipfs://{ipfs_hash}"
 
 
 # Global IPFS service instance
