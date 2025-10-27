@@ -4,16 +4,20 @@ External service integration for Decode SSO validation.
 This module provides functions to interact with the Decode SSO validation endpoint.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import httpx
 
-from app.api.dto.decode_dto import SSOValidateResponseDTO, FetchUserDataResponseDTO
+from app.api.dto.decode_dto import FetchUserDataResponseDTO, SSOValidateResponseDTO
 from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-async def validate_sso_token_external(sso_token: str) -> Optional[SSOValidateResponseDTO]:
+
+async def validate_sso_token_external(
+    sso_token: str,
+) -> Optional[SSOValidateResponseDTO]:
     """
     Validate SSO token with the external Decode service.
 
@@ -40,7 +44,9 @@ async def validate_sso_token_external(sso_token: str) -> Optional[SSOValidateRes
             # Parse response into DTO
             return SSOValidateResponseDTO.parse_obj(data)
         except httpx.HTTPStatusError as exc:
-            logger.error(f"SSO validation failed with status {exc.response.status_code}: {exc.response.text}")
+            logger.error(
+                f"SSO validation failed with status {exc.response.status_code}: {exc.response.text}"
+            )
             return None
         except httpx.ConnectError as exc:
             logger.error(f"Failed to connect to external service: {exc}")
@@ -49,7 +55,10 @@ async def validate_sso_token_external(sso_token: str) -> Optional[SSOValidateRes
             logger.error(f"Unexpected error during SSO validation: {exc}")
             return None
 
-async def get_decode_profile_external(user_id: str) -> Optional[FetchUserDataResponseDTO]:
+
+async def get_decode_profile_external(
+    user_id: str,
+) -> Optional[FetchUserDataResponseDTO]:
     """
     Get Decode profile with the external Decode service.
     """
@@ -61,11 +70,64 @@ async def get_decode_profile_external(user_id: str) -> Optional[FetchUserDataRes
             data = response.json()
             return data
         except httpx.HTTPStatusError as exc:
-            logger.error(f"Failed to get profile from Decode: {exc.response.status_code}: {exc.response.text}")
+            logger.error(
+                f"Failed to get profile from Decode: {exc.response.status_code}: {exc.response.text}"
+            )
             return None
         except httpx.ConnectError as exc:
             logger.error(f"Failed to connect to external service: {exc}")
             return None
         except Exception as exc:
             logger.error(f"Unexpected error during profile fetch: {exc}")
+            return None
+
+
+async def search_users_external(
+    access_token: str, email_or_username: str, page: int = 0, limit: int = 100
+) -> Optional[Dict[str, Any]]:
+    """
+    Search users with the external Decode service.
+
+    Args:
+        access_token (str): The access token for authentication.
+        email_or_username (str): Email or username to search for.
+        page (int): Page number (0-indexed).
+        limit (int): Number of results per page.
+
+    Returns:
+        Optional[Dict[str, Any]]: The response data if successful, None otherwise.
+
+    Raises:
+        httpx.HTTPError: If the request fails due to network or server error.
+    """
+    # Construct the user search URL using the configured backend URL
+    search_url = f"{settings.DECODE_BACKEND_URL}/users/search"
+
+    logger.info(f"Searching users with external service: {search_url}")
+
+    params = {"email_or_username": email_or_username, "page": page, "limit": limit}
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                search_url, params=params, headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                f"User search failed with status {exc.response.status_code}: {exc.response.text}"
+            )
+            return None
+        except httpx.ConnectError as exc:
+            logger.error(f"Failed to connect to external service: {exc}")
+            return None
+        except Exception as exc:
+            logger.error(f"Unexpected error during user search: {exc}")
             return None
