@@ -24,8 +24,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
-    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
+    # TODO: Dev Config for Testing
+    ALLOWED_ORIGINS: List[str] = ["*"]
+    ALLOWED_HOSTS: List[str] = ["*"]
 
     # Database - MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
