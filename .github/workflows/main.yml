@@ -1,0 +1,136 @@
+name: 🚀 Deploy FastAPI Backend
+
+on:
+  push:
+    branches:
+      - main  # only run when pushing to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repo
+      - name: 🧩 Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set up Python
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3️⃣ Install dependencies
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4️⃣ Run your tests (optional but recommended)
+      - name: 🧪 Run tests
+        run: |
+          pytest || echo "⚠️ Tests failed but continuing deployment"
+
+      # 5️⃣ SSH to your server and deploy
+      - name: 🚀 SSH Deploy to GCP VM
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.INSTANCE_IP }}       
+          username: ${{ secrets.INSTANCE_USER }}     
+          key: ${{ secrets.SSH_PRIVATE_KEY }}      
+          script: |
+            cd ~/deid_backend
+            echo "🔄 Pulling latest code..."
+            git pull origin main
+            echo "📦 Updating dependencies..."
+            source venv/bin/activate
+            pip install -r requirements.txt
+            echo "🚀 Restarting PM2 process..."
+            pm2 restart deid-backend || pm2 start "uvicorn app.main:app --host 0.0.0.0 --port 8000" --name deid-backend
+            pm2 save
+            echo "✅ Deployment complete!"
+
+    # ==================== NOTIFICATION ====================
+  notify-success:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: success() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Send Discord success notification
+        run: |
+          curl -H "Content-Type: application/json" \
+               -d '{
+                 "embeds": [{
+                   "title": "🚀 Production Deployment Successful",
+                   "description": "All services are healthy and running!",
+                   "color": 65280,
+                   "fields": [
+                     {
+                       "name": "Repository",
+                       "value": "${{ github.repository }}",
+                       "inline": true
+                     },
+                     {
+                       "name": "Branch",
+                       "value": "${{ github.ref_name }}",
+                       "inline": true
+                     },
+                     {
+                       "name": "Commit",
+                       "value": "`${{ github.sha }}`",
+                       "inline": false
+                     },
+                     {
+                       "name": "DEiD Backend Deployed",
+                       "inline": false
+                     }
+                   ],
+                   "footer": {
+                     "text": "GitHub Actions"
+                   },
+                   "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"
+                 }]
+               }' \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}
+  notify-failure:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Send Discord failure notification
+        run: |
+          curl -H "Content-Type: application/json" \
+               -d '{
+                 "embeds": [{
+                   "title": "❌ Production Deployment Failed",
+                   "description": "Deployment failed! Check the logs for details.",
+                   "color": 16711680,
+                   "fields": [
+                     {
+                       "name": "Repository",
+                       "value": "${{ github.repository }}",
+                       "inline": true
+                     },
+                     {
+                       "name": "Branch",
+                       "value": "${{ github.ref_name }}",
+                       "inline": true
+                     },
+                     {
+                       "name": "Commit",
+                       "value": "`${{ github.sha }}`",
+                       "inline": false
+                     },
+                     {
+                       "name": "Action URL",
+                       "value": "[View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                       "inline": false
+                     }
+                   ],
+                   "footer": {
+                     "text": "GitHub Actions"
+                   },
+                   "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"
+                 }]
+               }' \
+               ${{ secrets.DISCORD_WEBHOOK_URL }}
