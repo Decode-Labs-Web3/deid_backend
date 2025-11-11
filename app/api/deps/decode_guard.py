@@ -283,16 +283,22 @@ class DecodeAuthGuard:
                 # Set cookie if response provided
                 if response is not None:
                     expires_cookie = now + timedelta(seconds=ttl_seconds)
-                    response.set_cookie(
-                        key="deid_session_id",
-                        value=new_session_id,
-                        expires=expires_cookie,
-                        secure=True,
-                        httponly=True,
-                        samesite="none",
-                        path="/",
-                        domain="api.de-id.xyz",
-                    )
+
+                    cookie_kwargs = {
+                        "key": "deid_session_id",
+                        "value": new_session_id,
+                        "expires": expires_cookie,
+                        "secure": settings.COOKIE_SECURE,
+                        "httponly": settings.COOKIE_HTTPONLY,
+                        "samesite": settings.COOKIE_SAMESITE,
+                        "path": settings.COOKIE_PATH,
+                    }
+
+                    # Only set domain if configured
+                    if settings.COOKIE_DOMAIN:
+                        cookie_kwargs["domain"] = settings.COOKIE_DOMAIN
+
+                    response.set_cookie(**cookie_kwargs)
 
                 # Update in-memory cache: remove old
                 if old_session_id in self.cache:

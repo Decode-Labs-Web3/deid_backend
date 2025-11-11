@@ -156,6 +156,15 @@ class Settings(BaseSettings):
     BSC_RPC_URL: str = "https://bsc-mainnet.public.blastapi.io"
     BASE_RPC_URL: str = "https://base-mainnet.public.blastapi.io"
 
+    # Cookie Configuration
+    COOKIE_DOMAIN: Optional[str] = (
+        None  # None = host-only cookie, or set to ".de-id.xyz" for subdomain sharing
+    )
+    COOKIE_SAMESITE: str = "none"  # "none", "lax", or "strict"
+    COOKIE_SECURE: bool = True  # Must be True when samesite="none"
+    COOKIE_HTTPONLY: bool = True
+    COOKIE_PATH: str = "/"
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

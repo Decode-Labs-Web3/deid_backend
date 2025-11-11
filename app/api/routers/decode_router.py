@@ -17,6 +17,7 @@ from app.api.dto.decode_dto import (
     SSOValidateResponseDTO,
 )
 from app.api.services.decode_service import DecodeService
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -55,22 +56,29 @@ async def sso_validate(
     logger.info(f"SSO validation successful, session ID: {session_id}")
 
     # Set cookie with session ID
-    # Calculate expiration time (default to 30 days from now)
     expires = datetime.now(timezone.utc) + timedelta(days=30)
 
     logger.info(f"Setting cookie: deid_session_id={session_id}, expires={expires}")
 
-    response.set_cookie(
-        key="deid_session_id",
-        value=session_id,
-        expires=expires,
-        secure=True,
-        httponly=True,
-        samesite="none",
-        domain="api.de-id.xyz",
-    )
+    cookie_kwargs = {
+        "key": "deid_session_id",
+        "value": session_id,
+        "expires": expires,
+        "secure": settings.COOKIE_SECURE,
+        "httponly": settings.COOKIE_HTTPONLY,
+        "samesite": settings.COOKIE_SAMESITE,
+        "path": settings.COOKIE_PATH,
+    }
 
-    logger.info(f"Cookie set successfully: deid_session_id={session_id}")
+    # Only set domain if configured (None = host-only cookie)
+    if settings.COOKIE_DOMAIN:
+        cookie_kwargs["domain"] = settings.COOKIE_DOMAIN
+
+    response.set_cookie(**cookie_kwargs)
+
+    logger.info(
+        f"Cookie set successfully: deid_session_id={session_id}, domain={settings.COOKIE_DOMAIN}, samesite={settings.COOKIE_SAMESITE}"
+    )
 
     # Return success response
     return SSOValidateResponseDTO(

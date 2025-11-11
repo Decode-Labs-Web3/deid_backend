@@ -47,21 +47,31 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # # CORS middleware
-    # app.add_middleware(
-    #     CORSMiddleware,
-    #     allow_origins=settings.ALLOWED_ORIGINS,
-    #     allow_credentials=True,
-    #     allow_methods=["*"],
-    #     allow_headers=["*"],
-    # )
+    # CORS middleware - REQUIRED for cross-origin cookies
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=(
+            settings.ALLOWED_ORIGINS
+            if "*" not in settings.ALLOWED_ORIGINS
+            else [
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://de-id.xyz",
+                "https://www.de-id.xyz",
+            ]
+        ),
+        allow_credentials=True,  # CRITICAL for cookies
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
 
-    # # Trusted host middleware
-    # if settings.ENVIRONMENT == "production":
-    #     app.add_middleware(
-    #         TrustedHostMiddleware,
-    #         allowed_hosts=settings.ALLOWED_HOSTS,
-    #     )
+    # Trusted host middleware
+    if settings.ENVIRONMENT == "production":
+        app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=settings.ALLOWED_HOSTS,
+        )
 
     # Decode Backend Integration
     from app.api.routers import (
