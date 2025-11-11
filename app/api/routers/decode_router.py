@@ -64,10 +64,10 @@ async def sso_validate(
         key="deid_session_id",
         value=session_id,
         expires=expires,
-        secure=False,
-        httponly=False,  # Allow frontend JavaScript to access the cookie
-        samesite="lax",  # More permissive for cross-origin requests
-        path="/",  # Make cookie available for all paths
+        secure=True,
+        httponly=True,
+        samesite="none",
+        domain="api.de-id.xyz",
     )
 
     logger.info(f"Cookie set successfully: deid_session_id={session_id}")
