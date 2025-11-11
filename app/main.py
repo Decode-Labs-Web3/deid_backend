@@ -50,17 +50,8 @@ def create_app() -> FastAPI:
     # CORS middleware - REQUIRED for cross-origin cookies
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=(
-            settings.ALLOWED_ORIGINS
-            if "*" not in settings.ALLOWED_ORIGINS
-            else [
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://de-id.xyz",
-                "https://www.de-id.xyz",
-            ]
-        ),
-        allow_credentials=True,  # CRITICAL for cookies
+        allow_origins=settings.ALLOWED_ORIGINS
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
