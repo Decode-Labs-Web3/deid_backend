@@ -25,8 +25,12 @@ class Settings(BaseSettings):
 
     # CORS
     # TODO: Dev Config for Testing
-    ALLOWED_ORIGINS: List[str] = ["*"]
-    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://app.de-id.xyz",
+        "http://localhost:8000",
+    ]
+    ALLOWED_HOSTS: List[str] = ["localhost", "app.de-id.xyz", "api.de-id.xyz"]
 
     # Database - MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
