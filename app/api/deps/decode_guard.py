@@ -287,11 +287,11 @@ class DecodeAuthGuard:
                         key="deid_session_id",
                         value=new_session_id,
                         expires=expires_cookie,
-                        secure=False,
+                        secure=True,
                         httponly=True,
-                        samesite="lax",
+                        samesite="none",
                         path="/",
-                        domain=None,
+                        domain="api.de-id.xyz",
                     )
 
                 # Update in-memory cache: remove old
