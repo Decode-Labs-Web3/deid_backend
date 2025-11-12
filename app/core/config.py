@@ -172,7 +172,7 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN: Optional[str] = (
         None  # None = host-only cookie, or set to ".de-id.xyz" for subdomain sharing
     )
-    COOKIE_SAMESITE: str = "none"  # "none", "lax", or "strict"
+    COOKIE_SAMESITE: str = "lax"  # "none", "lax", or "strict"
     COOKIE_SECURE: bool = True  # Must be True when samesite="none"
     COOKIE_HTTPONLY: bool = True
     COOKIE_PATH: str = "/"
