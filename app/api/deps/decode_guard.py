@@ -82,7 +82,25 @@ class DecodeAuthGuard:
 
     def extract_session_id_from_cookie(self, request: Request) -> Optional[str]:
         """Extract session ID directly from cookies."""
-        return request.cookies.get("deid_session_id")
+        session_id = request.cookies.get("deid_session_id")
+
+        # Debug logging
+        all_cookies = dict(request.cookies)
+        logger.debug(
+            f"Cookie extraction - Request origin: {request.headers.get('origin', 'N/A')}, "
+            f"Request host: {request.headers.get('host', 'N/A')}, "
+            f"All cookies: {list(all_cookies.keys())}, "
+            f"Session ID found: {session_id is not None}"
+        )
+
+        if not session_id:
+            logger.warning(
+                f"Session ID not found in cookies. Available cookies: {list(all_cookies.keys())}, "
+                f"Origin: {request.headers.get('origin', 'N/A')}, "
+                f"Host: {request.headers.get('host', 'N/A')}"
+            )
+
+        return session_id
 
     async def get_session_from_redis(
         self, session_id: str
@@ -284,6 +302,9 @@ class DecodeAuthGuard:
                 if response is not None:
                     expires_cookie = now + timedelta(seconds=ttl_seconds)
 
+                    # Get effective cookie domain based on environment
+                    cookie_domain = settings.get_cookie_domain()
+
                     cookie_kwargs = {
                         "key": "deid_session_id",
                         "value": new_session_id,
@@ -295,10 +316,18 @@ class DecodeAuthGuard:
                     }
 
                     # Only set domain if configured
-                    if settings.COOKIE_DOMAIN:
-                        cookie_kwargs["domain"] = settings.COOKIE_DOMAIN
+                    if cookie_domain:
+                        cookie_kwargs["domain"] = cookie_domain
+                        logger.debug(f"Cookie refresh: domain set to {cookie_domain}")
+                    else:
+                        logger.debug("Cookie refresh: domain not set (host-only)")
 
                     response.set_cookie(**cookie_kwargs)
+                    logger.info(
+                        f"Cookie refreshed: new_session_id={new_session_id}, "
+                        f"domain={cookie_domain or 'None (host-only)'}, "
+                        f"expires={expires_cookie}"
+                    )
 
                 # Update in-memory cache: remove old
                 if old_session_id in self.cache:
@@ -342,7 +371,16 @@ class DecodeAuthGuard:
         """Main authentication method."""
         # Extract session ID directly from cookie
         session_id = self.extract_session_id_from_cookie(request)
-        print(f"Session ID: {session_id}")
+
+        # Enhanced debug logging
+        logger.debug(
+            f"Authentication attempt - Method: {request.method}, "
+            f"URL: {request.url}, "
+            f"Origin: {request.headers.get('origin', 'N/A')}, "
+            f"Host: {request.headers.get('host', 'N/A')}, "
+            f"Session ID: {session_id or 'NOT FOUND'}"
+        )
+
         if not session_id:
             raise HTTPException(
                 status_code=401,
@@ -424,7 +462,7 @@ async def get_current_user(
     Raises:
         HTTPException: If authentication fails
     """
-    print(f"Getting current user")
+    logger.debug("Getting current user via dependency")
     return await decode_auth_guard.authenticate(request, required_roles, response)
 
 

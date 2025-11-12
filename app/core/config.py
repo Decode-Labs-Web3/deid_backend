@@ -27,10 +27,18 @@ class Settings(BaseSettings):
     # TODO: Dev Config for Testing
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
         "https://app.de-id.xyz",
+        "https://www.de-id.xyz",
         "http://localhost:8000",
     ]
-    ALLOWED_HOSTS: List[str] = ["localhost", "app.de-id.xyz", "api.de-id.xyz"]
+    ALLOWED_HOSTS: List[str] = [
+        "localhost",
+        "app.de-id.xyz",
+        "api.de-id.xyz",
+        "www.de-id.xyz",
+    ]
 
     # Database - MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
@@ -168,6 +176,44 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = True  # Must be True when samesite="none"
     COOKIE_HTTPONLY: bool = True
     COOKIE_PATH: str = "/"
+
+    def get_cookie_domain(self) -> Optional[str]:
+        """
+        Get cookie domain based on environment.
+        For cross-origin cookies (localhost -> api.de-id.xyz), domain should be None.
+        For same-domain cookies (app.de-id.xyz -> api.de-id.xyz), use ".de-id.xyz".
+        """
+        # If explicitly set, use it
+        if self.COOKIE_DOMAIN:
+            return self.COOKIE_DOMAIN
+
+        # For production with subdomain sharing, use domain cookie
+        if self.ENVIRONMENT == "production":
+            # Check if frontend is on a subdomain of de-id.xyz
+            frontend_origins = [
+                origin for origin in self.ALLOWED_ORIGINS if "de-id.xyz" in origin
+            ]
+            if frontend_origins:
+                return ".de-id.xyz"
+
+        # For development or cross-origin scenarios, don't set domain
+        return None
+
+    def get_effective_cors_origins(self) -> List[str]:
+        """
+        Get effective CORS origins based on environment.
+        Ensures all necessary origins are included for cookie support.
+        """
+        origins = list(self.ALLOWED_ORIGINS)
+
+        # Add common localhost ports if not already present
+        common_ports = [3000, 5173, 8080, 8000]
+        for port in common_ports:
+            origin = f"http://localhost:{port}"
+            if origin not in origins:
+                origins.append(origin)
+
+        return origins
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

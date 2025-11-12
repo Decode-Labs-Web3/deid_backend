@@ -39,7 +39,7 @@ async def sso_validate(
     """
     verify_sso_token_response = await decode_service.verify_sso_token(request)
 
-    print(f"Verify SSO Token Response: {verify_sso_token_response}")
+    logger.debug(f"Verify SSO Token Response: {verify_sso_token_response}")
 
     # Check if validation was successful
     if not verify_sso_token_response.get("success", False):
@@ -58,7 +58,14 @@ async def sso_validate(
     # Set cookie with session ID
     expires = datetime.now(timezone.utc) + timedelta(days=30)
 
-    logger.info(f"Setting cookie: deid_session_id={session_id}, expires={expires}")
+    # Get effective cookie domain based on environment
+    cookie_domain = settings.get_cookie_domain()
+
+    logger.info(
+        f"Setting cookie: deid_session_id={session_id}, expires={expires}, "
+        f"domain={cookie_domain}, samesite={settings.COOKIE_SAMESITE}, "
+        f"secure={settings.COOKIE_SECURE}, httponly={settings.COOKIE_HTTPONLY}"
+    )
 
     cookie_kwargs = {
         "key": "deid_session_id",
@@ -71,13 +78,20 @@ async def sso_validate(
     }
 
     # Only set domain if configured (None = host-only cookie)
-    if settings.COOKIE_DOMAIN:
-        cookie_kwargs["domain"] = settings.COOKIE_DOMAIN
+    # For cross-origin (localhost -> api.de-id.xyz), domain should be None
+    if cookie_domain:
+        cookie_kwargs["domain"] = cookie_domain
+        logger.info(f"Cookie domain set to: {cookie_domain}")
+    else:
+        logger.info("Cookie domain not set (host-only cookie)")
 
     response.set_cookie(**cookie_kwargs)
 
     logger.info(
-        f"Cookie set successfully: deid_session_id={session_id}, domain={settings.COOKIE_DOMAIN}, samesite={settings.COOKIE_SAMESITE}"
+        f"Cookie set successfully: deid_session_id={session_id}, "
+        f"domain={cookie_domain or 'None (host-only)'}, "
+        f"samesite={settings.COOKIE_SAMESITE}, "
+        f"secure={settings.COOKIE_SECURE}"
     )
 
     # Return success response

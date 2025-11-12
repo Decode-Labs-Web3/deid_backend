@@ -12,7 +12,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.core.logging import setup_logging
+from app.core.logging import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -48,21 +50,32 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware - REQUIRED for cross-origin cookies
+    cors_origins = settings.get_effective_cors_origins()
+    logger.info(f"CORS configured with origins: {cors_origins}")
+    logger.info(f"CORS allow_credentials: True (required for cookies)")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_credentials=True,  # CRITICAL: Must be True for cookies to work cross-origin
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
     )
 
     # Trusted host middleware
+    # Note: This only validates the Host header, not the Origin header
+    # CORS middleware handles Origin validation separately
     if settings.ENVIRONMENT == "production":
+        logger.info(
+            f"TrustedHost middleware enabled with hosts: {settings.ALLOWED_HOSTS}"
+        )
         app.add_middleware(
             TrustedHostMiddleware,
             allowed_hosts=settings.ALLOWED_HOSTS,
         )
+    else:
+        logger.info("TrustedHost middleware disabled (development mode)")
 
     # Decode Backend Integration
     from app.api.routers import (
