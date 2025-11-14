@@ -25,7 +25,7 @@ This guide will help you set up and test the Social Link Service using Insomnia.
 
 4. **Set Redirect URI**
    - In "OAuth2" → "General"
-   - Add redirect URI: `http://localhost:8000/api/v1/social/discord/callback`
+   - Add redirect URI: `https://api.de-id.xyz/api/v1/social/discord/callback`
 
 ### 2. **Generate Private Key**
 
@@ -45,7 +45,7 @@ Add these lines to your `.env` file:
 # Discord OAuth Configuration
 DISCORD_CLIENT_ID=your_actual_discord_client_id_here
 DISCORD_CLIENT_SECRET=your_actual_discord_client_secret_here
-DISCORD_REDIRECT_URI=http://localhost:8000/api/v1/social/discord/callback
+DISCORD_REDIRECT_URI=https://api.de-id.xyz/api/v1/social/discord/callback
 
 # Social Link Backend Signing
 SOCIAL_LINK_PRIVATE_KEY=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef

@@ -290,7 +290,7 @@ MONGO_PASSWORD=decodenetworkweb3
 # Discord OAuth Configuration
 DISCORD_CLIENT_ID=your_discord_client_id
 DISCORD_CLIENT_SECRET=your_discord_client_secret
-DISCORD_REDIRECT_URI=http://localhost:8000/api/v1/social/discord/callback
+DISCORD_REDIRECT_URI=https://api.de-id.xyz/api/v1/social/discord/callback
 
 # Social Link Backend Signing
 SOCIAL_LINK_PRIVATE_KEY=your_private_key_for_signing
@@ -307,7 +307,7 @@ pip install -r requirements.txt
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create a new application
 3. Go to OAuth2 settings
-4. Add redirect URI: `http://localhost:8000/api/v1/social/discord/callback`
+4. Add redirect URI: `https://api.de-id.xyz/api/v1/social/discord/callback`
 5. Copy Client ID and Client Secret to your `.env` file
 
 ### 4. Run the Application
@@ -329,25 +329,25 @@ python test_social_link_service.py
 1. **Get OAuth URL:**
 
    ```bash
-   curl "http://localhost:8000/api/v1/social/discord/oauth-url?user_id=0x1234567890abcdef"
+   curl "https://api.de-id.xyz/api/v1/social/discord/oauth-url?user_id=0x1234567890abcdef"
    ```
 
 2. **Health Check:**
 
    ```bash
-   curl "http://localhost:8000/api/v1/social/health"
+   curl "https://api.de-id.xyz/api/v1/social/health"
    ```
 
 3. **Get Social Links:**
 
    ```bash
-   curl "http://localhost:8000/api/v1/social/links/0x1234567890abcdef"
-   curl "http://localhost:8000/api/v1/social/links/0x1234567890abcdef?status=verified"
+   curl "https://api.de-id.xyz/api/v1/social/links/0x1234567890abcdef"
+   curl "https://api.de-id.xyz/api/v1/social/links/0x1234567890abcdef?status=verified"
    ```
 
 4. **Get Statistics:**
    ```bash
-   curl "http://localhost:8000/api/v1/social/stats/0x1234567890abcdef"
+   curl "https://api.de-id.xyz/api/v1/social/stats/0x1234567890abcdef"
    ```
 
 ## Database Operations

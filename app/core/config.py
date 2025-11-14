@@ -134,27 +134,27 @@ class Settings(BaseSettings):
     # Discord OAuth
     DISCORD_CLIENT_ID: Optional[str] = None
     DISCORD_CLIENT_SECRET: Optional[str] = None
-    DISCORD_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/discord/callback"
+    DISCORD_REDIRECT_URI: str = "https://api.de-id.xyz/api/v1/social/discord/callback"
 
     # Github OAuth
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECRET: Optional[str] = None
-    GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/github/callback"
+    GITHUB_REDIRECT_URI: str = "https://api.de-id.xyz/api/v1/social/github/callback"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/google/callback"
+    GOOGLE_REDIRECT_URI: str = "https://api.de-id.xyz/api/v1/social/google/callback"
 
     # Facebook OAuth
     FACEBOOK_CLIENT_ID: Optional[str] = None
     FACEBOOK_CLIENT_SECRET: Optional[str] = None
-    FACEBOOK_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/facebook/callback"
+    FACEBOOK_REDIRECT_URI: str = "https://api.de-id.xyz/api/v1/social/facebook/callback"
 
     # Twitter OAuth
     X_CLIENT_ID: Optional[str] = None
     X_CLIENT_SECRET: Optional[str] = None
-    X_REDIRECT_URI: str = "http://localhost:8000/api/v1/social/x/callback"
+    X_REDIRECT_URI: str = "https://api.de-id.xyz/api/v1/social/x/callback"
 
     # IPFS Configuration
     IPFS_GATEWAY_URL_POST: str = "http://35.247.142.76:5001/api/v0/add"
