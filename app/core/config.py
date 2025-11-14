@@ -169,10 +169,8 @@ class Settings(BaseSettings):
     BASE_RPC_URL: str = "https://base-mainnet.public.blastapi.io"
 
     # Cookie Configuration
-    COOKIE_DOMAIN: Optional[str] = (
-        None  # None = host-only cookie, or set to ".de-id.xyz" for subdomain sharing
-    )
-    COOKIE_SAMESITE: str = "lax"  # "none", "lax", or "strict"
+    COOKIE_DOMAIN: Optional[str] = ".de-id.xyz"
+    COOKIE_SAMESITE: str = "none"  # "none", "lax", or "strict"
     COOKIE_SECURE: bool = True  # Must be True when samesite="none"
     COOKIE_HTTPONLY: bool = True
     COOKIE_PATH: str = "/"
