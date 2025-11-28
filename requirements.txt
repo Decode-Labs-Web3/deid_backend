@@ -79,3 +79,8 @@ varint==1.0.2
 web3==7.4.0
 websockets==15.0.1
 yarl==1.21.0
+
+# Testing
+asgi-lifespan==2.1.0
+pytest==8.3.4
+pytest-asyncio==0.23.8
